@@ -902,6 +902,10 @@ AC_DEFINE([_FORTIFY_SOURCE], 2, [enable compile-time and run-time bounds-checkin
 case "$target" in
   *hpux*)
 	;;
+  *darwin*)
+	AC_CHECK_FUNCS(pread)
+	LIBS="$LIBS -framework CoreFoundation -framework IOKit"
+	;;
   *)
 	AC_CHECK_FUNCS(pread)
   ;;

@@ -51,6 +51,9 @@ void autoset_unit(disk_t *disk)
 #if !defined(SINGLE_PARTITION_TYPE) || defined(SINGLE_PARTITION_MAC)
       disk->arch==&arch_mac ||
 #endif
+      disk->is_ssd != 0 ||
+      disk->sector_size == 4096 ||
+      disk->disk_size > (uint64_t)2048 * 1024 * 1024 * 1024ULL ||
       (disk->geom.heads_per_cylinder==1 && disk->geom.sectors_per_head==1))
     disk->unit=UNIT_SECTOR;
   else

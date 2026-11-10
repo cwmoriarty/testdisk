@@ -51,10 +51,15 @@ extern const file_hint_t file_hint_jpg;
 #endif
 extern const file_hint_t file_hint_tiff;
 static const char *extension_arw="arw";
+static const char *extension_arq="arq";
 static const char *extension_cr2="cr2";
 static const char *extension_dng="dng";
 static const char *extension_nef="nef";
 static const char *extension_sr2="sr2";
+static const char *extension_3fr="3fr";
+static const char *extension_iiq="iiq";
+static const char *extension_pef="pef";
+static const char *extension_orf="orf";
 
 #ifndef MAIN_tiff_be
 /*@
@@ -878,19 +883,31 @@ int header_check_tiff_le(const unsigned char *buffer, const unsigned int buffer_
     const unsigned int tag_make=find_tag_from_tiff_header_le(buffer, buffer_size, TIFFTAG_MAKE, &potential_error);
     if(tag_make!=0 && tag_make < buffer_size - 5)
     {
-      /* TODO
-       * sr2 if Sony::FileFormat begins by 1
-       * arw otherwise */
-      if(memcmp(&buffer[tag_make], "SONY", 5)==0)
-	file_recovery_new->extension=extension_sr2;
+      if(memcmp(&buffer[tag_make], "SONY", 5)==0 || memcmp(&buffer[tag_make], "Sony", 4)==0)
+      {
+        const unsigned int tag_model=find_tag_from_tiff_header_le(buffer, buffer_size, 0x0110, &potential_error);
+        if(tag_model!=0 && tag_model < buffer_size - 3 && memcmp(&buffer[tag_model], "ARQ", 3)==0)
+          file_recovery_new->extension=extension_arq;
+        else
+          file_recovery_new->extension=extension_arw;
+      }
       else if(memcmp(&buffer[tag_make], "SONY ",5)==0)
 	file_recovery_new->extension=extension_arw;
       else if(tag_make < buffer_size - 18 && memcmp(&buffer[tag_make], "NIKON CORPORATION", 18)==0)
 	file_recovery_new->extension=extension_nef;
+      else if(tag_make < buffer_size - 10 && (memcmp(&buffer[tag_make], "Hasselblad", 10)==0 || memcmp(&buffer[tag_make], "HASSELBLAD", 10)==0))
+        file_recovery_new->extension=extension_3fr;
+      else if(tag_make < buffer_size - 9 && memcmp(&buffer[tag_make], "Phase One", 9)==0)
+        file_recovery_new->extension=extension_iiq;
+      else if(tag_make < buffer_size - 6 && memcmp(&buffer[tag_make], "PENTAX", 6)==0)
+        file_recovery_new->extension=extension_pef;
+      else if(tag_make < buffer_size - 7 && memcmp(&buffer[tag_make], "OLYMPUS", 7)==0)
+        file_recovery_new->extension=extension_orf;
     }
   }
   file_recovery_new->time=get_date_from_tiff_header(buffer, buffer_size);
   file_recovery_new->file_check=&file_check_tiff_le;
+  file_recovery_new->file_rename=&file_rename_tiff;
   /*@ assert file_recovery_new->extension == file_hint_tiff.extension ||
 				file_recovery_new->extension == extension_arw ||
 				file_recovery_new->extension == extension_cr2 ||

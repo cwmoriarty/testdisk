@@ -45,7 +45,7 @@ typedef struct efi_guid_s efi_guid_t;
 #define DEFAULT_SECTOR_SIZE     0x200u
 
 #define DISKNAME_MAX	64
-#define DISKDESCRIPTION_MAX	128
+#define DISKDESCRIPTION_MAX	512
 /* PARTITION TYPE */
 #define P_NO_OS         0x00
 #define P_12FAT         0x01
@@ -236,6 +236,24 @@ typedef struct efi_guid_s efi_guid_t;
 #define GPT_ENT_TYPE_BEOS_BFS	\
 	(const efi_guid_t){le32(0x42465331),le16(0x3ba3),le16(0x10f1),0x80,0x2a,{0x48,0x61,0x69,0x6b,0x75,0x21}}
 
+/* Modern Linux DPS, Windows & ChromeOS Partition GUIDs */
+#define GPT_ENT_TYPE_LINUX_ROOT_X86_64 \
+	(const efi_guid_t){le32(0x4f68bce3),le16(0xe8cd),le16(0x4db1),0x96,0xe7,{0xfb,0xca,0xf9,0x84,0xb7,0x09}}
+#define GPT_ENT_TYPE_LINUX_ROOT_ARM64 \
+	(const efi_guid_t){le32(0x69dad710),le16(0x2ce4),le16(0x4e3c),0xb1,0x6c,{0x21,0xa1,0xd4,0x9a,0xbe,0xd3}}
+#define GPT_ENT_TYPE_LINUX_USR_X86_64 \
+	(const efi_guid_t){le32(0x8484680c),le16(0x9521),le16(0x48c6),0xba,0x0f,{0xa1,0x30,0x1b,0x9d,0x19,0xfc}}
+#define GPT_ENT_TYPE_LINUX_USR_ARM64 \
+	(const efi_guid_t){le32(0xb0e01050),le16(0xee5f),le16(0x4390),0x94,0x9a,{0x97,0x01,0x95,0xe2,0x41,0x00}}
+#define GPT_ENT_TYPE_MS_BITLOCKER \
+	(const efi_guid_t){le32(0x49fd6142),le16(0x4374),le16(0x42c3),0xbc,0xbd,{0x7f,0x09,0x4e,0x4e,0x04,0x4b}}
+#define GPT_ENT_TYPE_MS_WINRE \
+	(const efi_guid_t){le32(0xde94bba4),le16(0x06d1),le16(0x4d40),0xa1,0x6a,{0xbf,0xd5,0x01,0x79,0xd6,0xac}}
+#define GPT_ENT_TYPE_CHROMEOS_KERNEL \
+	(const efi_guid_t){le32(0xfe3a2a5d),le16(0x4f32),le16(0x41a7),0xb7,0x25,{0xac,0xcc,0x32,0x85,0xa3,0x09}}
+#define GPT_ENT_TYPE_CHROMEOS_ROOTFS \
+	(const efi_guid_t){le32(0x3cb525a3),le16(0x3a06),le16(0x4d05),0xbc,0x07,{0xe4,0xe7,0x02,0xdd,0x5b,0x20}}
+
 #define TESTDISK_O_RDONLY     00
 #define TESTDISK_O_RDWR	      02
 #define TESTDISK_O_DIRECT 040000
@@ -422,6 +440,10 @@ struct param_disk_struct
   char *model;
   char *serial_no;
   char *fw_rev;
+  int is_ssd;
+  int is_usb_adapter;
+  char *bus_type;
+  char *medium_type;
   const char *(*description)(disk_t *disk);
   const char *(*description_short)(disk_t *disk);
   int (*pread)(disk_t *disk, void *buf, const unsigned int count, const uint64_t offset);

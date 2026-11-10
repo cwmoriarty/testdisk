@@ -90,6 +90,13 @@ int intrf_no_disk_ncurses(const char *prog_name)
     }
 #endif
   }
+#if defined(__APPLE__) || defined(__MACH__)
+  else
+  {
+    prompt_full_disk_access_ncurses(prog_name);
+    return 0;
+  }
+#endif
 #endif
   wmove(stdscr,22,0);
   wattrset(stdscr, A_REVERSE);
@@ -100,35 +107,40 @@ int intrf_no_disk_ncurses(const char *prog_name)
   return 0;
 }
 
-int prompt_root_ncurses(void)
+int prompt_root_ncurses(const char *prog_name)
 {
-  static const struct MenuItem menuRoot[]=
+  const char *pname = (prog_name != NULL) ? prog_name : "TestDisk";
+  char msg_sudo[128];
+  char msg_quit[64];
+  snprintf(msg_sudo, sizeof(msg_sudo), "Use sudo to restart %s with root privileges", pname);
+  snprintf(msg_quit, sizeof(msg_quit), "Quit %s", pname);
+  const struct MenuItem menuRoot[]=
   {
-    {'S', "Sudo", "Use sudo to restart TestDisk with root privileges"},
+    {'S', "Sudo", msg_sudo},
     {'P', "Proceed", "Continue without root (some or all disks may be missing)"},
-    {'Q', "Quit", "Quit TestDisk"},
+    {'Q', "Quit", msg_quit},
     {0, NULL, NULL}
   };
   unsigned int menu=0;
   aff_copy(stdscr);
   wmove(stdscr,4,0);
-  wprintw(stdscr,"  TestDisk is free software, and");
+  wprintw(stdscr,"  %s is free software, and", pname);
   wmove(stdscr,5,0);
   wprintw(stdscr,"comes with ABSOLUTELY NO WARRANTY.");
   wmove(stdscr,7,0);
   if(has_colors())
     wbkgdset(stdscr,' ' | A_BOLD | COLOR_PAIR(1));
-  wprintw(stdscr,"Warning: TestDisk is not running as root (superuser).");
+  wprintw(stdscr,"Warning: %s is not running as root (superuser).", pname);
   if(has_colors())
     wbkgdset(stdscr,' ' | COLOR_PAIR(0));
   wmove(stdscr,9,0);
-  wprintw(stdscr,"TestDisk needs root privileges to detect and access raw disk devices.");
+  wprintw(stdscr,"%s needs root privileges to detect and access raw disk devices.", pname);
   wmove(stdscr,10,0);
   wprintw(stdscr,"Without root permissions, disks will not appear or may be read-only.");
   wmove(stdscr,12,0);
   wprintw(stdscr,"You can restart using sudo to gain root access, proceed anyway, or quit.");
   wmove(stdscr,15,0);
-  wprintw(stdscr,"Use arrow keys to select, then press Enter key:");
+  wprintw(stdscr,"Use arrow keys / j/k to select, then press Enter key:");
   while(1)
   {
     const int command = wmenuSelect_ext(stdscr, 23, 17, 0, menuRoot, 8,
@@ -149,9 +161,39 @@ int prompt_root_ncurses(void)
     }
   }
 }
+
+void prompt_full_disk_access_ncurses(const char *prog_name)
+{
+  const char *pname = (prog_name != NULL) ? prog_name : "TestDisk";
+  aff_copy(stdscr);
+  wmove(stdscr, 4, 0);
+  if(has_colors())
+    wbkgdset(stdscr, ' ' | A_BOLD | COLOR_PAIR(1));
+  wprintw(stdscr, "  macOS Full Disk Access (TCC) Required");
+  if(has_colors())
+    wbkgdset(stdscr, ' ' | COLOR_PAIR(0));
+  wmove(stdscr, 6, 0);
+  wprintw(stdscr, "Root privileges are active, but macOS Transparency, Consent, and Control\n");
+  wprintw(stdscr, "(TCC) is currently blocking direct access to physical raw disk devices.\n\n");
+  wprintw(stdscr, "To enable %s to access your drives:\n", pname);
+  wprintw(stdscr, "  1. Open macOS System Settings -> Privacy & Security.\n");
+  wprintw(stdscr, "  2. Scroll down and click on 'Full Disk Access'.\n");
+  wprintw(stdscr, "  3. Click the '+' button or toggle switch to enable your Terminal app\n");
+  wprintw(stdscr, "     (Terminal, iTerm2, etc.).\n");
+  wprintw(stdscr, "  4. Quit and relaunch %s.\n", pname);
+  wmove(stdscr, 17, 0);
+  wattrset(stdscr, A_REVERSE);
+  waddstr(stdscr, "[ Press any key to continue ]");
+  wattroff(stdscr, A_REVERSE);
+  wrefresh(stdscr);
+  while(wgetch(stdscr) == ERR);
+}
 #else
-int prompt_root_ncurses(void)
+int prompt_root_ncurses(const char *prog_name)
 {
   return 0;
+}
+void prompt_full_disk_access_ncurses(const char *prog_name)
+{
 }
 #endif

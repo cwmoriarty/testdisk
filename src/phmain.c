@@ -88,6 +88,7 @@
 #include "file_gz.h"
 #include "ntfs_dir.h"
 #include "pdiskseln.h"
+#include "nodisk.h"
 #include "dfxml.h"
 
 int need_to_stop=0;
@@ -386,6 +387,27 @@ int main( int argc, char **argv )
     log_close();
     return 1;
   }
+#if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
+  if(geteuid()!=0 && argc==1)
+  {
+    const int root_action = prompt_root_ncurses("PhotoRec");
+    if(root_action == 1)
+    {
+      end_ncurses();
+      printf("\nPhotoRec will try to restart itself using the sudo command to get\n");
+      printf("root (superuser) privileges.\n\n");
+      run_sudo(argc, argv, create_log);
+      return 0;
+    }
+    else if(root_action == 2)
+    {
+      end_ncurses();
+      free(params.recup_dir);
+      log_close();
+      return 0;
+    }
+  }
+#endif
   {
     const char*filename=logfile;
     while(create_log!=TD_LOG_NONE && log_opened==0)

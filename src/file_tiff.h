@@ -158,6 +158,7 @@ int header_check_tiff_be(const unsigned char *buffer, const unsigned int buffer_
   @ assigns \nothing;
   @*/
 unsigned int tiff_type2size(const unsigned int type);
+void file_rename_tiff(file_recovery_t *file_recovery);
 
 #ifdef DEBUG_TIFF
 const char *tag_name(unsigned int tag);

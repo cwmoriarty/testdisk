@@ -327,17 +327,79 @@ int wmenuSelect_ext(WINDOW *window, const int yinfo, const int y, const int x, c
     wclrtoeol(window);
     if(strchr(available, key)==NULL)
     {
-      if(key=='2')
+      if(key=='2' || key=='j' || key=='J')
 	key=KEY_DOWN;
-      else if(key=='4')
+      else if(key=='4' || key=='h' || key=='H')
 	key=KEY_LEFT;
-      else if(key=='5')
+      else if(key=='5' || key==' ')
 	key=KEY_ENTER;
-      else if(key=='6')
+      else if(key=='6' || key=='l' || key=='L')
 	key=KEY_RIGHT;
-      else if(key=='8')
+      else if(key=='8' || key=='k' || key=='K')
 	key=KEY_UP;
     }
+#ifdef KEY_MOUSE
+    if(key == KEY_MOUSE)
+    {
+      MEVENT event;
+      if(getmouse(&event) == OK)
+      {
+#if NCURSES_MOUSE_VERSION > 1
+        if(event.bstate & BUTTON4_PRESSED)
+        {
+          key = ((menuType & MENU_VERT)!=0) ? KEY_UP : KEY_LEFT;
+        }
+        else if(event.bstate & BUTTON5_PRESSED)
+        {
+          key = ((menuType & MENU_VERT)!=0) ? KEY_DOWN : KEY_RIGHT;
+        }
+        else
+#endif
+        if(event.bstate & (BUTTON1_CLICKED | BUTTON1_PRESSED | BUTTON1_DOUBLE_CLICKED))
+        {
+          if((menuType & MENU_VERT)!=0)
+          {
+            int clicked_idx = event.y - y;
+            if(clicked_idx >= 0)
+            {
+              int idx = 0;
+              while(menuItems[idx].key != 0 && idx < clicked_idx) idx++;
+              if(menuItems[idx].key != 0 && strchr(available, menuItems[idx].key) != NULL)
+              {
+                *current = idx;
+                if(event.bstate & (BUTTON1_DOUBLE_CLICKED | BUTTON1_CLICKED))
+                  key = menuItems[*current].key;
+                else
+                  key = 0;
+              }
+            }
+          }
+          else
+          {
+            int cur_x = x;
+            unsigned int idx;
+            for(idx = 0; menuItems[idx].key != 0; idx++)
+            {
+              int item_w = strlen(menuItems[idx].name) + 4;
+              if(event.y == y && event.x >= cur_x && event.x < cur_x + item_w)
+              {
+                if(strchr(available, menuItems[idx].key) != NULL)
+                {
+                  *current = idx;
+                  if(event.bstate & (BUTTON1_DOUBLE_CLICKED | BUTTON1_CLICKED))
+                    key = menuItems[*current].key;
+                  else
+                    key = 0;
+                }
+                break;
+              }
+              cur_x += item_w + 1;
+            }
+          }
+        }
+      }
+    }
+#endif
     /* Cursor keys */
     switch(key)
     {
@@ -1043,6 +1105,8 @@ int start_ncurses(const char *prog_name, const char *real_prog_name)
 #endif
     init_pair(1, COLOR_RED, COLOR_BLACK);
     init_pair(2, COLOR_GREEN, COLOR_BLACK);
+    init_pair(3, COLOR_CYAN, COLOR_BLACK);
+    init_pair(4, COLOR_YELLOW, COLOR_BLACK);
   }
   noecho();
 #ifndef DJGPP
@@ -1051,6 +1115,10 @@ int start_ncurses(const char *prog_name, const char *real_prog_name)
   /*  intrflush(stdscr, FALSE); */
   cbreak();
   curs_set(0);
+#ifdef NCURSES_VERSION
+  keypad(stdscr, TRUE);
+  mousemask(ALL_MOUSE_EVENTS | REPORT_MOUSE_POSITION, NULL);
+#endif
   {
     int quit=0;
     while(LINES>=8 && LINES<MINIMUM_LINES && quit==0)

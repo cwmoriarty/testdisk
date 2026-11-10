@@ -76,6 +76,16 @@
 #ifdef HAVE_SYS_DISK_H
 #include <sys/disk.h>
 #endif
+#if defined(__APPLE__)
+#include <CoreFoundation/CoreFoundation.h>
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOMedia.h>
+#include <IOKit/storage/IOBlockStorageDevice.h>
+#include <IOKit/IOBSD.h>
+#ifndef kIOMainPortDefault
+#define kIOMainPortDefault kIOMasterPortDefault
+#endif
+#endif
 #ifdef HAVE_FEATURES_H
 #include <features.h>
 #endif
@@ -201,6 +211,8 @@ void generic_clean(disk_t *disk)
   free(disk->model);
   free(disk->serial_no);
   free(disk->fw_rev);
+  free(disk->bus_type);
+  free(disk->medium_type);
   free(disk->data);
   free(disk->rbuffer);
   free(disk->wbuffer);
@@ -208,6 +220,8 @@ void generic_clean(disk_t *disk)
   disk->model=NULL;
   disk->serial_no=NULL;
   disk->fw_rev=NULL;
+  disk->bus_type=NULL;
+  disk->medium_type=NULL;
   disk->data=NULL;
   disk->rbuffer=NULL;
   disk->wbuffer=NULL;
@@ -264,6 +278,203 @@ static list_disk_t *hd_glob_parse(const char *device_pattern, list_disk_t *list_
 #endif
 
 
+#if defined(__APPLE__)
+static list_disk_t *hd_parse_apple(list_disk_t *list_disk, const int verbose, const int testdisk_mode)
+{
+  CFMutableDictionaryRef matchingDict = IOServiceMatching(kIOMediaClass);
+  io_iterator_t iter = 0;
+  kern_return_t kr;
+  int found_any = 0;
+
+  if(matchingDict != NULL)
+  {
+    CFDictionarySetValue(matchingDict, CFSTR(kIOMediaWholeKey), kCFBooleanTrue);
+    kr = IOServiceGetMatchingServices(kIOMainPortDefault, matchingDict, &iter);
+    if(kr == KERN_SUCCESS && iter != 0)
+    {
+      io_service_t media;
+      while((media = IOIteratorNext(iter)) != 0)
+      {
+        CFStringRef bsdName = (CFStringRef)IORegistryEntryCreateCFProperty(media, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
+        if(bsdName != NULL)
+        {
+          char bsdBuf[64] = "";
+          CFStringGetCString(bsdName, bsdBuf, sizeof(bsdBuf), kCFStringEncodingUTF8);
+          CFRelease(bsdName);
+
+          if(bsdBuf[0] != '\0')
+          {
+            char raw_dev[128];
+            char blk_dev[128];
+            disk_t *disk_car = NULL;
+
+            snprintf(raw_dev, sizeof(raw_dev), "/dev/r%s", bsdBuf);
+            snprintf(blk_dev, sizeof(blk_dev), "/dev/%s", bsdBuf);
+
+            /* Prefer raw character device for fast direct I/O on macOS */
+            disk_car = file_test_availability(raw_dev, verbose, testdisk_mode);
+            if(disk_car == NULL)
+            {
+              disk_car = file_test_availability(blk_dev, verbose, testdisk_mode);
+            }
+
+            if(disk_car != NULL)
+            {
+              found_any++;
+
+              io_registry_entry_t parent;
+              char interconnect[64] = "";
+              char mediumType[32] = "";
+              char modelName[128] = "";
+              char vendorName[128] = "";
+
+              if(IORegistryEntryGetParentEntry(media, kIOServicePlane, &parent) == KERN_SUCCESS)
+              {
+                CFTypeRef charProp = IORegistryEntrySearchCFProperty(parent, kIOServicePlane, CFSTR("Device Characteristics"), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+                if(charProp && CFGetTypeID(charProp) == CFDictionaryGetTypeID())
+                {
+                  CFDictionaryRef charDict = (CFDictionaryRef)charProp;
+                  CFStringRef med = (CFStringRef)CFDictionaryGetValue(charDict, CFSTR("Medium Type"));
+                  if(med)
+                    CFStringGetCString(med, mediumType, sizeof(mediumType), kCFStringEncodingUTF8);
+                  CFStringRef prod = (CFStringRef)CFDictionaryGetValue(charDict, CFSTR("Product Name"));
+                  if(prod)
+                    CFStringGetCString(prod, modelName, sizeof(modelName), kCFStringEncodingUTF8);
+                  CFStringRef vend = (CFStringRef)CFDictionaryGetValue(charDict, CFSTR("Vendor Name"));
+                  if(vend)
+                    CFStringGetCString(vend, vendorName, sizeof(vendorName), kCFStringEncodingUTF8);
+                  CFRelease(charProp);
+                }
+
+                CFTypeRef protoProp = IORegistryEntrySearchCFProperty(parent, kIOServicePlane, CFSTR("Protocol Characteristics"), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+                if(protoProp && CFGetTypeID(protoProp) == CFDictionaryGetTypeID())
+                {
+                  CFDictionaryRef protoDict = (CFDictionaryRef)protoProp;
+                  CFStringRef icon = (CFStringRef)CFDictionaryGetValue(protoDict, CFSTR("Physical Interconnect"));
+                  if(icon)
+                    CFStringGetCString(icon, interconnect, sizeof(interconnect), kCFStringEncodingUTF8);
+                  CFRelease(protoProp);
+                }
+                IOObjectRelease(parent);
+              }
+
+              /* Attribute classification */
+              if(strcasecmp(mediumType, "Solid State") == 0)
+              {
+                disk_car->is_ssd = 1;
+                disk_car->medium_type = strdup("SSD");
+              }
+              else if(strcasecmp(mediumType, "Rotational") == 0)
+              {
+                disk_car->is_ssd = 0;
+                disk_car->medium_type = strdup("HDD Spinning");
+              }
+
+              if(interconnect[0] != '\0')
+              {
+                if(strcasecmp(interconnect, "Apple Fabric") == 0 || strcasecmp(interconnect, "PCI-Express") == 0)
+                  disk_car->bus_type = strdup("PCIe NVMe");
+                else if(strcasecmp(interconnect, "USB") == 0)
+                  disk_car->bus_type = strdup("USB");
+                else if(strcasecmp(interconnect, "Secure Digital") == 0)
+                  disk_car->bus_type = strdup("SD Card");
+                else
+                  disk_car->bus_type = strdup(interconnect);
+              }
+
+              if(disk_car->bus_type && strcmp(disk_car->bus_type, "USB") == 0)
+              {
+                if(strstr(modelName, "ASMedia") || strstr(modelName, "JMicron") ||
+                   strstr(modelName, "Realtek") || strstr(modelName, "Sabrent") ||
+                   strstr(modelName, "Inateck") || strstr(vendorName, "ASMedia") ||
+                   strstr(vendorName, "JMicron") || disk_car->is_ssd == 0)
+                {
+                  disk_car->is_usb_adapter = 1;
+                }
+              }
+
+              /* Format modern model string */
+              char rich_model[512] = "";
+              char badge_bus[64] = "";
+              char badge_med[64] = "";
+
+              if(disk_car->bus_type != NULL)
+                snprintf(badge_bus, sizeof(badge_bus), "[%s]", disk_car->bus_type);
+
+              if(disk_car->is_ssd)
+              {
+                if(disk_car->sector_size == 4096)
+                  snprintf(badge_med, sizeof(badge_med), "[SSD 4Kn]");
+                else
+                  snprintf(badge_med, sizeof(badge_med), "[SSD]");
+              }
+              else if(disk_car->is_usb_adapter)
+              {
+                snprintf(badge_med, sizeof(badge_med), "[HDD Spinning via Adapter]");
+              }
+              else if(disk_car->medium_type != NULL)
+              {
+                snprintf(badge_med, sizeof(badge_med), "[%s]", disk_car->medium_type);
+              }
+
+              char dev_label[128] = "";
+              if(modelName[0] != '\0')
+              {
+                if(vendorName[0] != '\0' && strstr(modelName, vendorName) == NULL)
+                  snprintf(dev_label, sizeof(dev_label), "%s %s", vendorName, modelName);
+                else
+                  snprintf(dev_label, sizeof(dev_label), "%s", modelName);
+              }
+              else if(disk_car->model != NULL)
+              {
+                strncpy(dev_label, disk_car->model, sizeof(dev_label) - 1);
+              }
+
+              char vol_suffix[256] = "";
+              if(disk_car->model != NULL && strstr(disk_car->model, dev_label) == NULL)
+              {
+                snprintf(vol_suffix, sizeof(vol_suffix), " (Volumes: \"%s\")", disk_car->model);
+              }
+
+              snprintf(rich_model, sizeof(rich_model), "%s%s%s%s%s%s",
+                       badge_bus,
+                       badge_bus[0] != '\0' ? " " : "",
+                       badge_med,
+                       badge_med[0] != '\0' ? " " : "",
+                       dev_label,
+                       vol_suffix);
+
+              if(rich_model[0] != '\0')
+              {
+                free(disk_car->model);
+                disk_car->model = strdup(rich_model);
+              }
+
+              list_disk = insert_new_disk(list_disk, disk_car);
+            }
+          }
+        }
+        IOObjectRelease(media);
+      }
+      IOObjectRelease(iter);
+    }
+  }
+
+  /* Fallback if IOKit returns nothing: probe raw character device nodes */
+  if(found_any == 0)
+  {
+    unsigned int i;
+    char device[100];
+    for(i=0; i<64; i++)
+    {
+      snprintf(device, sizeof(device), "/dev/rdisk%u", i);
+      list_disk = insert_new_disk(list_disk, file_test_availability(device, verbose, testdisk_mode));
+    }
+  }
+  return list_disk;
+}
+#endif
+
 list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testdisk_mode)
 {
   unsigned int i;
@@ -303,18 +514,7 @@ list_disk_t *hd_parse(list_disk_t *list_disk, const int verbose, const int testd
   }
 #elif defined(__APPLE__)
   {
-    char device[100];
-    /* Disk */
-    for(i=0;i<20;i++)
-    {
-      snprintf(device, sizeof(device), "/dev/disk%u", i);
-      list_disk=insert_new_disk(list_disk, file_test_availability(device, verbose, testdisk_mode));
-    }
-    for(i=0;i<20;i++)
-    {
-      snprintf(device, sizeof(device), "/dev/rdisk%u", i);
-      list_disk=insert_new_disk(list_disk, file_test_availability(device, verbose, testdisk_mode));
-    }
+    list_disk = hd_parse_apple(list_disk, verbose, testdisk_mode);
   }
 #elif defined(DISABLED_FOR_FRAMAC)
 #elif defined(TARGET_LINUX)
@@ -1554,6 +1754,11 @@ static int file_pread_aux(const disk_t *disk, void *buf, const unsigned int coun
 #else
 #if defined(HAVE_PREAD)
   ret=pread(fd,buf,count,offset);
+  if(ret<0 && (errno == EAGAIN || errno == EINTR))
+  {
+    usleep(10000);
+    ret=pread(fd,buf,count,offset);
+  }
   if(ret<0 && errno == ENOSYS)
 #endif
   {
@@ -2171,5 +2376,9 @@ void init_disk(disk_t *disk)
   disk->fw_rev=NULL;
   disk->write_used=0;
   disk->description_txt[0]='\0';
+  disk->is_ssd=0;
+  disk->is_usb_adapter=0;
+  disk->bus_type=NULL;
+  disk->medium_type=NULL;
   disk->unit=UNIT_CHS;
 }

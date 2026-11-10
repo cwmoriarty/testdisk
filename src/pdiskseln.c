@@ -113,7 +113,7 @@ static int photorec_disk_selection_ncurses(struct ph_param *params, struct ph_op
     wmove(stdscr,5,0);
     wprintw(stdscr,"comes with ABSOLUTELY NO WARRANTY.");
     wmove(stdscr,7,0);
-    wprintw(stdscr,"Select a media and choose 'Proceed' using arrow keys:");
+    wprintw(stdscr,"Select a media and choose 'Proceed' using arrow keys / j/k or mouse:");
     for(i=0,element_disk=list_disk;
 	element_disk!=NULL && i<offset+NBR_DISK_MAX;
 	i++, element_disk=element_disk->next)
@@ -157,9 +157,9 @@ static int photorec_disk_selection_ncurses(struct ph_param *params, struct ph_op
       wmove(stdscr, INTER_NOTE_Y+1, 0);
       wprintw(stdscr,"Disk capacity must be correctly detected for a successful recovery.");
       wmove(stdscr, INTER_NOTE_Y+2, 0);
-      wprintw(stdscr,"If a disk listed above has an incorrect size, check HD jumper settings and BIOS");
+      wprintw(stdscr,"For NVMe SSDs, USB drives, or adapter-connected IDE/SATA drives, ensure solid");
       wmove(stdscr, INTER_NOTE_Y+3, 0);
-      wprintw(stdscr,"detection, and install the latest OS patches and disk drivers."); 
+      wprintw(stdscr,"connections and sufficient 12V power for 3.5\" LFF spinning desktop drives."); 
     }
 #ifdef SUDO_BIN
     if(use_sudo > 0)
@@ -181,16 +181,22 @@ static int photorec_disk_selection_ncurses(struct ph_param *params, struct ph_op
 	menu_options, MENU_HORIZ | MENU_BUTTON | MENU_ACCEPT_OTHERS, &menu,&real_key);
     switch(command)
     {
-      case KEY_UP:
+      case 'p':
       case 'P':
+      case 'k':
+      case 'K':
+      case KEY_UP:
 	if(current_disk->prev!=NULL)
 	{
 	  current_disk=current_disk->prev;
 	  pos_num--;
 	}
 	break;
-      case KEY_DOWN:
+      case 'n':
       case 'N':
+      case 'j':
+      case 'J':
+      case KEY_DOWN:
 	if(current_disk->next!=NULL)
 	{
 	  current_disk=current_disk->next;

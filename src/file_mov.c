@@ -65,6 +65,8 @@ static const char *extension_m4a="m4a";
 static const char *extension_3gp="3gp";
 static const char *extension_3g2="3g2";
 static const char *extension_heic="heic";
+static const char *extension_avif="avif";
+static const char *extension_jxl="jxl";
 static const char *extension_jp2="jp2";
 static const char *extension_cr3="cr3";
 
@@ -402,10 +404,42 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
 	file_recovery_new->calculated_file_size=calculated_file_size;
 	return 1;
       }
-      else if(memcmp(&buffer[i+8], "heic", 4)==0)
+      else if(memcmp(&buffer[i+8], "avif", 4)==0 || memcmp(&buffer[i+8], "avis", 4)==0)
+      {
+	reset_file_recovery(file_recovery_new);
+	file_recovery_new->extension=extension_avif;
+	if(file_recovery->blocksize < 16)
+	{
+	  file_recovery_new->min_filesize=calculated_file_size;
+	  return 1;
+	}
+	file_recovery_new->data_check=&data_check_mov;
+	file_recovery_new->file_check=&file_check_size;
+	file_recovery_new->calculated_file_size=calculated_file_size;
+	return 1;
+      }
+      else if(memcmp(&buffer[i+8], "heic", 4)==0 || memcmp(&buffer[i+8], "heix", 4)==0 ||
+              memcmp(&buffer[i+8], "heim", 4)==0 || memcmp(&buffer[i+8], "heis", 4)==0 ||
+              memcmp(&buffer[i+8], "hevc", 4)==0 || memcmp(&buffer[i+8], "hevm", 4)==0 ||
+              memcmp(&buffer[i+8], "hevs", 4)==0 || memcmp(&buffer[i+8], "mif1", 4)==0 ||
+              memcmp(&buffer[i+8], "msf1", 4)==0)
       {
 	reset_file_recovery(file_recovery_new);
 	file_recovery_new->extension=extension_heic;
+	if(file_recovery->blocksize < 16)
+	{
+	  file_recovery_new->min_filesize=calculated_file_size;
+	  return 1;
+	}
+	file_recovery_new->data_check=&data_check_mov;
+	file_recovery_new->file_check=&file_check_size;
+	file_recovery_new->calculated_file_size=calculated_file_size;
+	return 1;
+      }
+      else if(memcmp(&buffer[i+8], "jxl ", 4)==0)
+      {
+	reset_file_recovery(file_recovery_new);
+	file_recovery_new->extension=extension_jxl;
 	if(file_recovery->blocksize < 16)
 	{
 	  file_recovery_new->min_filesize=calculated_file_size;
@@ -439,7 +473,7 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
 	file_recovery_new->calculated_file_size=calculated_file_size;
 	return 1;
       }
-      else if(memcmp(&buffer[i+8], "crx ", 4)==0)
+      else if(memcmp(&buffer[i+8], "crx ", 4)==0 || memcmp(&buffer[i+8], "cr3 ", 4)==0)
       {
 	reset_file_recovery(file_recovery_new);
 	file_recovery_new->extension=extension_cr3;
@@ -452,6 +486,57 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
 	file_recovery_new->file_check=&file_check_size;
 	file_recovery_new->calculated_file_size=calculated_file_size;
 	return 1;
+      }
+      else
+      {
+        /* Check compatible brands in ftyp atom */
+        uint32_t b;
+        for(b = i + 16; b + 4 <= i + atom_size && b + 4 <= buffer_size; b += 4)
+        {
+          if(memcmp(&buffer[b], "heic", 4)==0 || memcmp(&buffer[b], "mif1", 4)==0 ||
+             memcmp(&buffer[b], "msf1", 4)==0 || memcmp(&buffer[b], "heix", 4)==0)
+          {
+            reset_file_recovery(file_recovery_new);
+            file_recovery_new->extension=extension_heic;
+            if(file_recovery->blocksize < 16)
+            {
+              file_recovery_new->min_filesize=calculated_file_size;
+              return 1;
+            }
+            file_recovery_new->data_check=&data_check_mov;
+            file_recovery_new->file_check=&file_check_size;
+            file_recovery_new->calculated_file_size=calculated_file_size;
+            return 1;
+          }
+          else if(memcmp(&buffer[b], "avif", 4)==0 || memcmp(&buffer[b], "avis", 4)==0)
+          {
+            reset_file_recovery(file_recovery_new);
+            file_recovery_new->extension=extension_avif;
+            if(file_recovery->blocksize < 16)
+            {
+              file_recovery_new->min_filesize=calculated_file_size;
+              return 1;
+            }
+            file_recovery_new->data_check=&data_check_mov;
+            file_recovery_new->file_check=&file_check_size;
+            file_recovery_new->calculated_file_size=calculated_file_size;
+            return 1;
+          }
+          else if(memcmp(&buffer[b], "crx ", 4)==0)
+          {
+            reset_file_recovery(file_recovery_new);
+            file_recovery_new->extension=extension_cr3;
+            if(file_recovery->blocksize < 16)
+            {
+              file_recovery_new->min_filesize=calculated_file_size;
+              return 1;
+            }
+            file_recovery_new->data_check=&data_check_mov;
+            file_recovery_new->file_check=&file_check_size;
+            file_recovery_new->calculated_file_size=calculated_file_size;
+            return 1;
+          }
+        }
       }
     }
     if(buffer[i+4]=='m' && buffer[i+5]=='d' && buffer[i+6]=='a' && buffer[i+7]=='t')

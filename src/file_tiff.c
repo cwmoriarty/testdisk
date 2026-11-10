@@ -34,16 +34,18 @@
 #include <stdlib.h>
 #endif
 #include <stdio.h>
+#include <ctype.h>
 #include "types.h"
 #include "filegen.h"
 #include "common.h"
 #include "file_tiff.h"
+#include "setdate.h"
 #include "log.h"
 #if defined(__FRAMAC__)
 #include "__fc_builtin.h"
 #endif
 
-/*@ requires valid_register_header_check(file_stat); */
+
 static void register_header_check_tiff(file_stat_t *file_stat);
 
 const file_hint_t file_hint_tiff= {
@@ -180,6 +182,110 @@ time_t get_date_from_tiff_header(const unsigned char *buffer, const unsigned int
   tmp=get_time_from_YYYY_MM_DD_HH_MM_SS(&buffer[date_asc]);
   /*@ assert \valid_read(buffer+(0..buffer_size-1)); */
   return tmp;
+}
+
+void file_rename_tiff(file_recovery_t *file_recovery)
+{
+  FILE *file;
+  unsigned char buffer[65536];
+  size_t n;
+  char date_str[32] = "";
+  char model_str[64] = "";
+  char prefix[128];
+  int is_le = 0;
+  size_t off;
+
+  if((file = fopen(file_recovery->filename, "rb")) == NULL)
+    return;
+  n = fread(buffer, 1, sizeof(buffer), file);
+  fclose(file);
+
+  if(n < 16)
+    return;
+
+  if(buffer[0] == 'I' && buffer[1] == 'I')
+    is_le = 1;
+  else if(buffer[0] == 'M' && buffer[1] == 'M')
+    is_le = 0;
+  else
+    return;
+
+  for(off = 0; off + 12 <= n; off++)
+  {
+    uint16_t tag = is_le ? (buffer[off] | ((uint16_t)buffer[off+1] << 8)) :
+                           (((uint16_t)buffer[off] << 8) | buffer[off+1]);
+    uint16_t type = is_le ? (buffer[off+2] | ((uint16_t)buffer[off+3] << 8)) :
+                            (((uint16_t)buffer[off+2] << 8) | buffer[off+3]);
+    uint32_t count = is_le ? ((uint32_t)buffer[off+4] | ((uint32_t)buffer[off+5] << 8) | ((uint32_t)buffer[off+6] << 16) | ((uint32_t)buffer[off+7] << 24)) :
+                             (((uint32_t)buffer[off+4] << 24) | ((uint32_t)buffer[off+5] << 16) | ((uint32_t)buffer[off+6] << 8) | (uint32_t)buffer[off+7]);
+    uint32_t val_off = is_le ? ((uint32_t)buffer[off+8] | ((uint32_t)buffer[off+9] << 8) | ((uint32_t)buffer[off+10] << 16) | ((uint32_t)buffer[off+11] << 24)) :
+                               (((uint32_t)buffer[off+8] << 24) | ((uint32_t)buffer[off+9] << 16) | ((uint32_t)buffer[off+10] << 8) | (uint32_t)buffer[off+11]);
+
+    if(type == 2 && count > 1 && count < 64)
+    {
+      const char *str_val = NULL;
+      if(count <= 4)
+        str_val = (const char *)&buffer[off + 8];
+      else if(val_off + count <= n)
+        str_val = (const char *)&buffer[val_off];
+
+      if(str_val != NULL)
+      {
+        if((tag == 0x9003 || tag == 0x0132) && date_str[0] == '\0')
+        {
+          if(count >= 19 && isdigit((unsigned char)str_val[0]) && isdigit((unsigned char)str_val[1]) &&
+             isdigit((unsigned char)str_val[2]) && isdigit((unsigned char)str_val[3]) && str_val[4] == ':')
+          {
+            snprintf(date_str, sizeof(date_str), "%c%c%c%c%c%c%c%c_%c%c%c%c%c%c",
+                     str_val[0], str_val[1], str_val[2], str_val[3],
+                     str_val[5], str_val[6],
+                     str_val[8], str_val[9],
+                     str_val[11], str_val[12],
+                     str_val[14], str_val[15],
+                     str_val[17], str_val[18]);
+          }
+        }
+        else if(tag == 0x0110 && model_str[0] == '\0')
+        {
+          size_t k = 0, m = 0;
+          while(k < count && str_val[k] != '\0' && m < sizeof(model_str) - 1)
+          {
+            char c = str_val[k++];
+            if(isalnum((unsigned char)c) || c == '_' || c == '-')
+              model_str[m++] = c;
+            else if(c == ' ' && m > 0 && model_str[m-1] != '_')
+              model_str[m++] = '_';
+          }
+          while(m > 0 && model_str[m-1] == '_') m--;
+          model_str[m] = '\0';
+        }
+      }
+    }
+  }
+
+  if(date_str[0] != '\0')
+  {
+    struct tm tm_date;
+    time_t t;
+    memset(&tm_date, 0, sizeof(tm_date));
+    if(sscanf(date_str, "%4d%2d%2d_%2d%2d%2d",
+              &tm_date.tm_year, &tm_date.tm_mon, &tm_date.tm_mday,
+              &tm_date.tm_hour, &tm_date.tm_min, &tm_date.tm_sec) == 6)
+    {
+      tm_date.tm_year -= 1900;
+      tm_date.tm_mon -= 1;
+      t = mktime(&tm_date);
+      if(t != (time_t)-1)
+        set_date(file_recovery->filename, t, t);
+    }
+
+    if(model_str[0] != '\0')
+      snprintf(prefix, sizeof(prefix), "%s_%s", date_str, model_str);
+    else
+      snprintf(prefix, sizeof(prefix), "%s", date_str);
+
+    file_rename(file_recovery, prefix, strlen(prefix), 0, NULL, 1);
+  }
 }
 
 static void register_header_check_tiff(file_stat_t *file_stat)

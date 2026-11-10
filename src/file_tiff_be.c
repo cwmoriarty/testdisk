@@ -868,6 +868,7 @@ int header_check_tiff_be(const unsigned char *buffer, const unsigned int buffer_
   }
   file_recovery_new->time=get_date_from_tiff_header(buffer, buffer_size);
   file_recovery_new->file_check=&file_check_tiff_be;
+  file_recovery_new->file_rename=&file_rename_tiff;
   return 1;
 }
 #endif

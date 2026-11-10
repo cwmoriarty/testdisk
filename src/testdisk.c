@@ -401,7 +401,7 @@ int main( int argc, char **argv )
 #if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
   if(geteuid()!=0 && argc==1)
   {
-    const int root_action = prompt_root_ncurses();
+    const int root_action = prompt_root_ncurses("TestDisk");
     if(root_action == 1)
     {
       end_ncurses();

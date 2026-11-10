@@ -140,9 +140,9 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
       wmove(stdscr, INTER_NOTE_Y+1, 0);
       waddstr(stdscr, "Disk capacity must be correctly detected for a successful recovery.");
       wmove(stdscr, INTER_NOTE_Y+2, 0);
-      wprintw(stdscr, "If a disk listed above has an incorrect size, check HD jumper settings and BIOS");
+      wprintw(stdscr, "For NVMe SSDs, USB drives, or adapter-connected IDE/SATA drives, ensure solid");
       wmove(stdscr, INTER_NOTE_Y+3, 0);
-      wprintw(stdscr, "detection, and install the latest OS patches and disk drivers.");
+      wprintw(stdscr, "connections and sufficient 12V power for 3.5\" LFF spinning desktop drives.");
     }
 #ifdef SUDO_BIN
     if(use_sudo > 0)
@@ -166,6 +166,8 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
     {
       case 'p':
       case 'P':
+      case 'k':
+      case 'K':
       case KEY_UP:
 	if(current_disk->prev!=NULL)
 	{
@@ -175,6 +177,8 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
 	break;
       case 'n':
       case 'N':
+      case 'j':
+      case 'J':
       case KEY_DOWN:
 	if(current_disk->next!=NULL)
 	{

@@ -180,6 +180,14 @@ const struct systypes_gtp gpt_sys_types[] = {
   { GPT_ENT_TYPE_SOLARIS_RESERVED3,	"Solaris Reserved3"	},
   { GPT_ENT_TYPE_SOLARIS_RESERVED4,	"Solaris Reserved4"	},
   { GPT_ENT_TYPE_SOLARIS_RESERVED5,	"Solaris Reserved5"	},
+  { GPT_ENT_TYPE_LINUX_ROOT_X86_64,	"Linux Root (x86-64)"	},
+  { GPT_ENT_TYPE_LINUX_ROOT_ARM64,	"Linux Root (ARM64)"	},
+  { GPT_ENT_TYPE_LINUX_USR_X86_64,	"Linux /usr (x86-64)"	},
+  { GPT_ENT_TYPE_LINUX_USR_ARM64,	"Linux /usr (ARM64)"	},
+  { GPT_ENT_TYPE_MS_BITLOCKER,		"Windows BitLocker"	},
+  { GPT_ENT_TYPE_MS_WINRE,		"Windows Recovery (WinRE)" },
+  { GPT_ENT_TYPE_CHROMEOS_KERNEL,	"ChromeOS Kernel"	},
+  { GPT_ENT_TYPE_CHROMEOS_ROOTFS,	"ChromeOS Rootfs"	},
   { GPT_ENT_TYPE_BEOS_BFS,		"BeFS"},
   { GPT_ENT_TYPE_UNUSED,  NULL }
  };
