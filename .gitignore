@@ -2,6 +2,9 @@
 *.o
 *.in
 *.8
+*.ses
+*.se2
+*.log
 config/
 config.*
 Makefile
