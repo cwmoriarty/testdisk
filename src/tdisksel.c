@@ -72,11 +72,11 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
   const list_disk_t *current_disk;
   static const struct MenuItem menuMain[]=
   {
-    { 'P', "Previous", ""},
-    { 'N', "Next", "" },
     { 'O', "Proceed", ""},
-    { 'S', "Sudo", "Use the sudo command to restart as root"},
     { 'Q', "Quit", "Quit program"},
+#ifdef SUDO_BIN
+    { 'S', "Sudo", "Use the sudo command to restart as root"},
+#endif
     {  0,  NULL, NULL}
   };
   if(list_disk==NULL)
@@ -96,7 +96,7 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
     wmove(stdscr,5,0);
     wprintw(stdscr,"comes with ABSOLUTELY NO WARRANTY.");
     wmove(stdscr,7,0);
-    wprintw(stdscr,"Select a media and choose 'Proceed' using arrow keys:");
+    wprintw(stdscr,"Select a media (arrow keys or j/k to select, press Enter to Proceed):");
     for(i=0,element_disk=list_disk;
 	element_disk!=NULL && i<offset+NBR_DISK_MAX;
 	i++, element_disk=element_disk->next)
@@ -146,20 +146,11 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
     }
 #ifdef SUDO_BIN
     if(use_sudo > 0)
-    {
-      if(i<=NBR_DISK_MAX && element_disk==NULL)
-	options="OSQ";
-      else
-	options="PNOSQ";
-    }
+      options="OSQ";
     else
 #endif
-    {
-      if(i<=NBR_DISK_MAX && element_disk==NULL)
-	options="OQ";
-      else
-	options="PNOQ";
-    }
+      options="OQ";
+
     command = wmenuSelect_ext(stdscr, INTER_NOTE_Y-1, INTER_DISK_Y, INTER_DISK_X, menuMain, 8,
 	options, MENU_HORIZ | MENU_BUTTON | MENU_ACCEPT_OTHERS, &menu,NULL);
     switch(command)
@@ -174,6 +165,7 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
 	  current_disk=current_disk->prev;
 	  pos_num--;
 	}
+	menu=0;
 	break;
       case 'n':
       case 'N':
@@ -185,6 +177,22 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
 	  current_disk=current_disk->next;
 	  pos_num++;
 	}
+	menu=0;
+	break;
+      case 'g':
+      case KEY_HOME:
+	current_disk=list_disk;
+	pos_num=0;
+	menu=0;
+	break;
+      case 'G':
+      case KEY_END:
+	while(current_disk->next!=NULL)
+	{
+	  current_disk=current_disk->next;
+	  pos_num++;
+	}
+	menu=0;
 	break;
       case KEY_PPAGE:
 	for(i=0;i<NBR_DISK_MAX-1 && current_disk->prev!=NULL;i++)
@@ -192,6 +200,7 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
 	  current_disk=current_disk->prev;
 	  pos_num--;
 	}
+	menu=0;
 	break;
       case KEY_NPAGE:
 	for(i=0;i<NBR_DISK_MAX-1 && current_disk->next!=NULL;i++)
@@ -199,9 +208,65 @@ static int testdisk_disk_selection_ncurses(int verbose,int dump_ind, const list_
 	  current_disk=current_disk->next;
 	  pos_num++;
 	}
+	menu=0;
 	break;
+#ifdef KEY_MOUSE
+      case KEY_MOUSE:
+      {
+        MEVENT event;
+        if(getmouse(&event) == OK)
+        {
+#if NCURSES_MOUSE_VERSION > 1
+          if(event.bstate & BUTTON4_PRESSED)
+          {
+            if(current_disk->prev!=NULL)
+            {
+              current_disk=current_disk->prev;
+              pos_num--;
+            }
+            menu=0;
+          }
+          else if(event.bstate & BUTTON5_PRESSED)
+          {
+            if(current_disk->next!=NULL)
+            {
+              current_disk=current_disk->next;
+              pos_num++;
+            }
+            menu=0;
+          }
+          else
+#endif
+          if(event.bstate & (BUTTON1_CLICKED | BUTTON1_PRESSED | BUTTON1_DOUBLE_CLICKED))
+          {
+            if(event.y >= 8 && event.y < 8 + NBR_DISK_MAX)
+            {
+              const int target_idx = offset + (event.y - 8);
+              int cur_idx = 0;
+              const list_disk_t *d;
+              for(d = list_disk; d != NULL && cur_idx < target_idx; d = d->next, cur_idx++);
+              if(d != NULL)
+              {
+                current_disk = d;
+                pos_num = target_idx;
+                menu = 0;
+                if(event.bstate & BUTTON1_DOUBLE_CLICKED)
+                  goto do_proceed;
+              }
+            }
+          }
+        }
+        break;
+      }
+#endif
+      case '\n':
+      case '\r':
+      case KEY_ENTER:
       case 'o':
       case 'O':
+#ifdef KEY_MOUSE
+do_proceed:
+#endif
 	{
 	  disk_t *disk=current_disk->disk;
 	  const int hpa_dco=is_hpa_or_dco(disk);

@@ -347,11 +347,11 @@ int wmenuSelect_ext(WINDOW *window, const int yinfo, const int y, const int x, c
 #if NCURSES_MOUSE_VERSION > 1
         if(event.bstate & BUTTON4_PRESSED)
         {
-          key = ((menuType & MENU_VERT)!=0) ? KEY_UP : KEY_LEFT;
+          key = ((menuType & MENU_VERT)!=0 || event.y < y) ? KEY_UP : KEY_LEFT;
         }
         else if(event.bstate & BUTTON5_PRESSED)
         {
-          key = ((menuType & MENU_VERT)!=0) ? KEY_DOWN : KEY_RIGHT;
+          key = ((menuType & MENU_VERT)!=0 || event.y < y) ? KEY_DOWN : KEY_RIGHT;
         }
         else
 #endif
@@ -378,6 +378,7 @@ int wmenuSelect_ext(WINDOW *window, const int yinfo, const int y, const int x, c
           {
             int cur_x = x;
             unsigned int idx;
+            int matched = 0;
             for(idx = 0; menuItems[idx].key != 0; idx++)
             {
               int item_w = strlen(menuItems[idx].name) + 4;
@@ -391,9 +392,14 @@ int wmenuSelect_ext(WINDOW *window, const int yinfo, const int y, const int x, c
                   else
                     key = 0;
                 }
+                matched = 1;
                 break;
               }
               cur_x += item_w + 1;
+            }
+            if(!matched && (menuType & MENU_ACCEPT_OTHERS)!=0)
+            {
+              ungetmouse(&event);
             }
           }
         }
