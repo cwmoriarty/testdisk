@@ -28,6 +28,12 @@
 #undef SUDO_BIN
 #endif
 
+#ifndef SUDO_BIN
+#if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
+#define SUDO_BIN "/usr/bin/sudo"
+#endif
+#endif
+
 #ifdef SUDO_BIN
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
@@ -48,7 +54,14 @@
 void run_sudo(const int argc, char **argv, const int create_log)
 {
   char **argv2;
-  if(argc==1)
+  if(argc==1 && create_log==TD_LOG_NONE)
+  {
+    argv2 = (char **)MALLOC(sizeof(char *) * 3);
+    argv2[0] = strdup(SUDO_BIN);
+    argv2[1] = argv[0];
+    argv2[2] = NULL;
+  }
+  else if(argc==1)
   {
     argv2 = (char **)MALLOC(sizeof(char *) * 4);
     argv2[0] = strdup(SUDO_BIN);

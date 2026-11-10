@@ -30,6 +30,12 @@
 #if defined(__CYGWIN__) || defined(__MINGW32__) || defined(DJGPP) || !defined(HAVE_GETEUID)
 #undef SUDO_BIN
 #endif
+
+#ifndef SUDO_BIN
+#if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
+#define SUDO_BIN "/usr/bin/sudo"
+#endif
+#endif
  
 #ifdef HAVE_NCURSES
 #include <stdio.h>
@@ -91,6 +97,61 @@ int intrf_no_disk_ncurses(const char *prog_name)
   wattroff(stdscr, A_REVERSE);
   wrefresh(stdscr);
   while(wgetch(stdscr)==ERR);
+  return 0;
+}
+
+int prompt_root_ncurses(void)
+{
+  static const struct MenuItem menuRoot[]=
+  {
+    {'S', "Sudo", "Use sudo to restart TestDisk with root privileges"},
+    {'P', "Proceed", "Continue without root (some or all disks may be missing)"},
+    {'Q', "Quit", "Quit TestDisk"},
+    {0, NULL, NULL}
+  };
+  unsigned int menu=0;
+  aff_copy(stdscr);
+  wmove(stdscr,4,0);
+  wprintw(stdscr,"  TestDisk is free software, and");
+  wmove(stdscr,5,0);
+  wprintw(stdscr,"comes with ABSOLUTELY NO WARRANTY.");
+  wmove(stdscr,7,0);
+  if(has_colors())
+    wbkgdset(stdscr,' ' | A_BOLD | COLOR_PAIR(1));
+  wprintw(stdscr,"Warning: TestDisk is not running as root (superuser).");
+  if(has_colors())
+    wbkgdset(stdscr,' ' | COLOR_PAIR(0));
+  wmove(stdscr,9,0);
+  wprintw(stdscr,"TestDisk needs root privileges to detect and access raw disk devices.");
+  wmove(stdscr,10,0);
+  wprintw(stdscr,"Without root permissions, disks will not appear or may be read-only.");
+  wmove(stdscr,12,0);
+  wprintw(stdscr,"You can restart using sudo to gain root access, proceed anyway, or quit.");
+  wmove(stdscr,15,0);
+  wprintw(stdscr,"Use arrow keys to select, then press Enter key:");
+  while(1)
+  {
+    const int command = wmenuSelect_ext(stdscr, 23, 17, 0, menuRoot, 8,
+	"SPQ", MENU_VERT | MENU_VERT_WARN | MENU_BUTTON, &menu, NULL);
+    switch(command)
+    {
+      case 'S':
+      case 's':
+        return 1;
+      case 'P':
+      case 'p':
+        return 0;
+      case 'Q':
+      case 'q':
+        return 2;
+      default:
+        break;
+    }
+  }
+}
+#else
+int prompt_root_ncurses(void)
+{
   return 0;
 }
 #endif

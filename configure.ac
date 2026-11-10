@@ -173,13 +173,13 @@ AC_ARG_ENABLE([assert],
      [use_assert=true])
 
 AC_ARG_ENABLE([sudo],
-    AS_HELP_STRING([--enable-sudo],[enable use of sudo (default is NO)]),
+    AS_HELP_STRING([--enable-sudo],[enable use of sudo (default is YES)]),
     [case "${enableval}" in
        yes) use_sudo=true ;;
        no)  use_sudo=false ;;
        *) AC_MSG_ERROR([bad value ${enableval} for --enable-sudo]) ;;
      esac],
-     [use_sudo=false])
+     [use_sudo=true])
 
 AC_ARG_WITH(sudo-bin,
     AS_HELP_STRING([--with-sudo-bin=PROG],[location of the sudo binary]),

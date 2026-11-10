@@ -1264,6 +1264,85 @@ static void disk_get_model(const int hd_h, disk_t *dev, const unsigned int verbo
     file_win32_disk_get_model(handle, dev, verbose);
   }
 #endif
+#if defined(__APPLE__)
+  if(dev->model!=NULL)
+    return;
+  if(dev->device!=NULL)
+  {
+    char cmd[256];
+    char line[512];
+    char vols[256] = "";
+    int in_vols = 0;
+    snprintf(cmd, sizeof(cmd), "diskutil list -plist %s 2>/dev/null", dev->device);
+    FILE *f = popen(cmd, "r");
+    if(f != NULL)
+    {
+      while(fgets(line, sizeof(line), f) != NULL)
+      {
+        if(strstr(line, "<key>VolumesFromDisks</key>") != NULL)
+        {
+          in_vols = 1;
+        }
+        else if(in_vols != 0)
+        {
+          if(strstr(line, "</array>") != NULL || strstr(line, "<array/>") != NULL || strstr(line, "<key>") != NULL)
+            break;
+          char *start = strstr(line, "<string>");
+          char *end = strstr(line, "</string>");
+          if(start != NULL && end != NULL && end > start + 8)
+          {
+            *end = '\0';
+            start += 8;
+            if(strcmp(start, "Preboot")!=0 && strcmp(start, "Recovery")!=0 &&
+               strcmp(start, "Update")!=0 && strcmp(start, "VM")!=0)
+            {
+              if(vols[0] != '\0')
+                strncat(vols, ", ", sizeof(vols) - strlen(vols) - 1);
+              strncat(vols, start, sizeof(vols) - strlen(vols) - 1);
+            }
+          }
+        }
+      }
+      pclose(f);
+    }
+    if(vols[0] == '\0')
+    {
+      snprintf(cmd, sizeof(cmd), "diskutil info %s 2>/dev/null", dev->device);
+      f = popen(cmd, "r");
+      if(f != NULL)
+      {
+        while(fgets(line, sizeof(line), f) != NULL)
+        {
+          char *p;
+          if((p = strstr(line, "Volume Name:")) != NULL)
+          {
+            p += 12;
+            while(*p == ' ' || *p == '\t') p++;
+            char *nl = strchr(p, '\n');
+            if(nl) *nl = '\0';
+            if(strstr(p, "Not applicable") == NULL && *p != '\0')
+            {
+              strncpy(vols, p, sizeof(vols) - 1);
+              break;
+            }
+          }
+          else if((p = strstr(line, "Device / Media Name:")) != NULL && vols[0] == '\0')
+          {
+            p += 20;
+            while(*p == ' ' || *p == '\t') p++;
+            char *nl = strchr(p, '\n');
+            if(nl) *nl = '\0';
+            if(*p != '\0')
+              strncpy(vols, p, sizeof(vols) - 1);
+          }
+        }
+        pclose(f);
+      }
+    }
+    if(vols[0] != '\0')
+      dev->model = strdup(vols);
+  }
+#endif
   /*@ assert valid_disk(dev); */
 }
 

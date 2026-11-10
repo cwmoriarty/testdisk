@@ -26,6 +26,7 @@ extern "C" {
 #endif
 
 int intrf_no_disk_ncurses(const char *prog_name);
+int prompt_root_ncurses(void);
 
 #ifdef __cplusplus
 } /* closing brace for extern "C" */

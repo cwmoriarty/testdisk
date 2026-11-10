@@ -27,6 +27,12 @@
 #undef SUDO_BIN
 #endif
 
+#ifndef SUDO_BIN
+#if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
+#define SUDO_BIN "/usr/bin/sudo"
+#endif
+#endif
+
 #if defined(DISABLED_FOR_FRAMAC)
 #undef HAVE_LIBEWF
 #endif
@@ -70,6 +76,7 @@
 #include "misc.h"
 #include "tdisksel.h"
 #include "tlog.h"
+#include "nodisk.h"
 #include "autoset.h"
 #include "hidden.h"
 
@@ -391,6 +398,26 @@ int main( int argc, char **argv )
     log_close();
     return 1;
   }
+#if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
+  if(geteuid()!=0 && argc==1)
+  {
+    const int root_action = prompt_root_ncurses();
+    if(root_action == 1)
+    {
+      end_ncurses();
+      printf("\nTestDisk will try to restart itself using the sudo command to get\n");
+      printf("root (superuser) privileges.\n\n");
+      run_sudo(argc, argv, create_log);
+      return 0;
+    }
+    else if(root_action == 2)
+    {
+      end_ncurses();
+      log_close();
+      return 0;
+    }
+  }
+#endif
   if(argc==1 && create_log==TD_LOG_NONE)
   {
     verbose=1;

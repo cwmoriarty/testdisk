@@ -19,6 +19,17 @@
     Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
  */
+#if defined(HAVE_CONFIG_H)
+#include <config.h>
+#endif
+#if defined(__CYGWIN__) || defined(__MINGW32__) || defined(DJGPP) || !defined(HAVE_GETEUID)
+#undef SUDO_BIN
+#endif
+#ifndef SUDO_BIN
+#if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
+#define SUDO_BIN "/usr/bin/sudo"
+#endif
+#endif
 #ifdef SUDO_BIN
 #ifndef _SUDO_H
 #define _SUDO_H
