@@ -24,6 +24,7 @@
 #endif
  
 #include <stdio.h>
+#include <time.h>
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -545,6 +546,8 @@ static list_part_t *search_part(disk_t *disk_car, const list_part_t *list_part_o
   unsigned int try_offset_raid_nbr=0;
 #ifdef HAVE_NCURSES
   unsigned int old_cylinder=0;
+  time_t search_start_time=0;
+  time_t search_last_update=0;
 #endif
   const unsigned int location_boundary=get_location_boundary(disk_car);
   indstop_t ind_stop=INDSTOP_CONTINUE;
@@ -570,10 +573,15 @@ static list_part_t *search_part(disk_t *disk_car, const list_part_t *list_part_o
   }
 
 #ifdef HAVE_NCURSES
+  search_start_time=time(NULL);
+  search_last_update=search_start_time;
   wmove(stdscr,22,0);
-  wattrset(stdscr, A_REVERSE);
-  waddstr(stdscr,"  Stop  ");
-  wattroff(stdscr, A_REVERSE);
+  wclrtoeol(stdscr);
+  if(has_colors())
+    wbkgdset(stdscr, ' ' | COLOR_PAIR(2));
+  wprintw(stdscr, "Shortcuts: [Enter / S] Stop   [Space] Pause   [+] Skip 5%%");
+  if(has_colors())
+    wbkgdset(stdscr, ' ' | COLOR_PAIR(0));
 #endif
   screen_buffer_reset();
   log_info("\nsearch_part()\n");
@@ -589,49 +597,112 @@ static list_part_t *search_part(disk_t *disk_car, const list_part_t *list_part_o
     int ask=0;
     offset2CHS_inline(disk_car,search_location,&start);
 #ifdef HAVE_NCURSES
-    if(disk_car->geom.heads_per_cylinder>1)
     {
-      if(old_cylinder!=start.cylinder)
+      const time_t now=time(NULL);
+      if(disk_car->geom.heads_per_cylinder>1)
       {
-	old_cylinder=start.cylinder;
-	wmove(stdscr,ANALYSE_Y,ANALYSE_X);
-	wclrtoeol(stdscr);
-	wprintw(stdscr, "Analyse cylinder %5lu/%lu: %02u%%",
-	    start.cylinder, disk_car->geom.cylinders-1,
-	    (unsigned int)(search_location*100/disk_car->disk_size));
-	ask=1;
+        if(old_cylinder!=start.cylinder)
+        {
+	  old_cylinder=start.cylinder;
+	  ask=1;
+        }
       }
-    }
-    else if((start.cylinder & 0x7FFF)==0)
-    {
-      wmove(stdscr,ANALYSE_Y,ANALYSE_X);
-      wclrtoeol(stdscr);
-      wprintw(stdscr,"Analyse sector %11llu/%llu: %02u%%",
-	  (long long unsigned)(search_location / disk_car->sector_size),
-	  (long long unsigned)((disk_car->disk_size-1)/disk_car->sector_size),
-	    (unsigned int)(search_location*100/disk_car->disk_size));
-      wrefresh(stdscr);
-      ask=1;
-    }
-    if(ask!=0)
-    {
-      wrefresh(stdscr);
-      switch(check_enter_key_or_s(stdscr))
+      else if((start.cylinder & 0x7FFF)==0 || now > search_last_update)
       {
-	case 1:
-	  if(ask_confirmation("Stop searching for more partitions ? (Y/N)")!=0)
-	    ind_stop=INDSTOP_STOP;
-	  else
-	  {
-	    screen_buffer_to_interface();
-	  }
-	  break;
-	case 2:
-	  ind_stop=INDSTOP_SKIP;
-	  break;
-	case 3:
-	  ind_stop=INDSTOP_PLUS;
-	  break;
+        ask=1;
+      }
+      if(ask!=0)
+      {
+        const double pct = (disk_car->disk_size > 0) ?
+            ((double)search_location * 100.0 / (double)disk_car->disk_size) : 0.0;
+        const int bar_total = 36;
+        int filled = (int)(pct * (double)bar_total / 100.0);
+        int b;
+        double speed_mb_s = 0.0;
+        const time_t elapsed = now - search_start_time;
+
+        if(filled > bar_total) filled = bar_total;
+        if(filled < 0) filled = 0;
+        if(elapsed > 0 && search_location > min_location)
+          speed_mb_s = (double)(search_location - min_location) / (1024.0 * 1024.0 * (double)elapsed);
+
+        search_last_update = now;
+        wmove(stdscr, ANALYSE_Y, ANALYSE_X);
+        wclrtoeol(stdscr);
+        if(disk_car->geom.heads_per_cylinder > 1)
+        {
+          wprintw(stdscr, "Analyse cylinder %5lu/%lu  -  Speed: %5.1f MB/s",
+              start.cylinder, disk_car->geom.cylinders-1, speed_mb_s);
+        }
+        else
+        {
+          wprintw(stdscr, "Analyse sector %11llu/%llu  -  Speed: %5.1f MB/s",
+              (long long unsigned)(search_location / disk_car->sector_size),
+              (long long unsigned)((disk_car->disk_size-1)/disk_car->sector_size),
+              speed_mb_s);
+        }
+
+        /* Graphical Progress Bar */
+        wmove(stdscr, ANALYSE_Y + 1, ANALYSE_X);
+        wclrtoeol(stdscr);
+        waddstr(stdscr, "Progress: [");
+        if(has_colors())
+          wbkgdset(stdscr, ' ' | A_BOLD | COLOR_PAIR(3));
+        for(b = 0; b < filled; b++)
+          waddch(stdscr, '=');
+        if(filled < bar_total)
+          waddch(stdscr, '>');
+        for(b = filled + 1; b < bar_total; b++)
+          waddch(stdscr, ' ');
+        if(has_colors())
+          wbkgdset(stdscr, ' ' | COLOR_PAIR(0));
+        wprintw(stdscr, "] %5.1f%%", (pct > 100.0 ? 100.0 : pct));
+
+        wrefresh(stdscr);
+        switch(check_enter_key_or_s(stdscr))
+        {
+	  case 1:
+	    if(ask_confirmation("Stop searching for more partitions ? (Y/N)")!=0)
+	      ind_stop=INDSTOP_STOP;
+	    else
+	    {
+	      screen_buffer_to_interface();
+	    }
+	    break;
+	  case 2:
+	    ind_stop=INDSTOP_SKIP;
+	    break;
+	  case 3:
+	    ind_stop=INDSTOP_PLUS;
+	    break;
+          case 4: /* Pause */
+            wmove(stdscr, 22, 0);
+            wclrtoeol(stdscr);
+            wattrset(stdscr, A_REVERSE | (has_colors() ? COLOR_PAIR(4) : 0));
+            wprintw(stdscr, "  *** SCAN PAUSED - Press Space to Resume, or S to Stop ***  ");
+            wattroff(stdscr, A_REVERSE | (has_colors() ? COLOR_PAIR(4) : 0));
+            wrefresh(stdscr);
+            while(1)
+            {
+              const int ch = wgetch(stdscr);
+              if(ch == ' ' || ch == 'p' || ch == 'P' || ch == '\n' || ch == '\r')
+                break;
+              if(ch == 's' || ch == 'S' || ch == 'q' || ch == 'Q')
+              {
+                ind_stop = INDSTOP_STOP;
+                break;
+              }
+            }
+            wmove(stdscr, 22, 0);
+            wclrtoeol(stdscr);
+            if(has_colors())
+              wbkgdset(stdscr, ' ' | COLOR_PAIR(2));
+            wprintw(stdscr, "Shortcuts: [Enter / S] Stop   [Space] Pause   [+] Skip 5%%");
+            if(has_colors())
+              wbkgdset(stdscr, ' ' | COLOR_PAIR(0));
+            wrefresh(stdscr);
+            break;
+        }
       }
     }
 #endif

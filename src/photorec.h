@@ -22,7 +22,7 @@
 
 #ifndef _TESTDISK_PHOTOREC_H
 #define _TESTDISK_PHOTOREC_H
-#define MAX_FILES_PER_DIR	500
+#define MAX_FILES_PER_DIR	2500
 #define DEFAULT_RECUP_DIR "recup_dir"
 #ifdef __cplusplus
 extern "C" {

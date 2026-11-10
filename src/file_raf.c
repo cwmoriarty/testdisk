@@ -28,8 +28,11 @@
 #include <string.h>
 #endif
 #include <stdio.h>
+#include <ctype.h>
+#include <time.h>
 #include "types.h"
 #include "common.h"
+#include "setdate.h"
 #include "filegen.h"
 
 /*@ requires valid_register_header_check(file_stat); */
@@ -60,6 +63,123 @@ struct header_raf
   uint32_t cfa_offset;
   uint32_t cfa_size;
 } __attribute__ ((gcc_struct, __packed__));
+
+static void file_rename_raf(file_recovery_t *file_recovery)
+{
+  FILE *file;
+  struct header_raf hdr;
+  char model_str[64] = "";
+  char date_str[32] = "";
+  size_t k, m;
+
+  if((file = fopen(file_recovery->filename, "rb")) == NULL)
+    return;
+  if(fread(&hdr, sizeof(hdr), 1, file) != 1)
+  {
+    fclose(file);
+    return;
+  }
+
+  k = 0; m = 0;
+  while(k < sizeof(hdr.model) && hdr.model[k] != '\0' && m < sizeof(model_str) - 1)
+  {
+    const char c = hdr.model[k++];
+    if(isalnum((unsigned char)c) || c == '_' || c == '-')
+      model_str[m++] = c;
+    else if(c == ' ' && m > 0 && model_str[m-1] != '_')
+      model_str[m++] = '_';
+  }
+  while(m > 0 && model_str[m-1] == '_') m--;
+  model_str[m] = '\0';
+
+  if(be32(hdr.jpg_offset) >= sizeof(hdr) && be32(hdr.jpg_size) >= 32)
+  {
+    if(fseek(file, be32(hdr.jpg_offset), SEEK_SET) == 0)
+    {
+      unsigned char jbuf[65536];
+      const size_t jn = fread(jbuf, 1, sizeof(jbuf), file);
+      if(jn >= 32 && jbuf[0] == 0xFF && jbuf[1] == 0xD8)
+      {
+        size_t pos = 2;
+        while(pos + 4 < jn && jbuf[pos] == 0xFF)
+        {
+          const unsigned char marker = jbuf[pos + 1];
+          size_t len;
+          if(marker == 0xDA || marker == 0xD9)
+            break;
+          len = ((size_t)jbuf[pos + 2] << 8) | jbuf[pos + 3];
+          if(len < 2 || pos + 2 + len > jn)
+            break;
+          if(marker == 0xE1 && len >= 14 && memcmp(&jbuf[pos + 4], "Exif\0\0", 6) == 0)
+          {
+            const unsigned char *tiff_base = &jbuf[pos + 10];
+            const size_t tiff_len = len - 8;
+            if(tiff_len >= 14)
+            {
+              const int is_le = (tiff_base[0] == 'I' && tiff_base[1] == 'I');
+              size_t off;
+              for(off = 0; off + 12 <= tiff_len; off++)
+              {
+                const uint16_t tag = is_le ? (tiff_base[off] | ((uint16_t)tiff_base[off+1] << 8)) :
+                                             (((uint16_t)tiff_base[off] << 8) | tiff_base[off+1]);
+                const uint16_t type = is_le ? (tiff_base[off+2] | ((uint16_t)tiff_base[off+3] << 8)) :
+                                              (((uint16_t)tiff_base[off+2] << 8) | tiff_base[off+3]);
+                const uint32_t count = is_le ? ((uint32_t)tiff_base[off+4] | ((uint32_t)tiff_base[off+5] << 8) | ((uint32_t)tiff_base[off+6] << 16) | ((uint32_t)tiff_base[off+7] << 24)) :
+                                               (((uint32_t)tiff_base[off+4] << 24) | ((uint32_t)tiff_base[off+5] << 16) | ((uint32_t)tiff_base[off+6] << 8) | (uint32_t)tiff_base[off+7]);
+                const uint32_t val_off = is_le ? ((uint32_t)tiff_base[off+8] | ((uint32_t)tiff_base[off+9] << 8) | ((uint32_t)tiff_base[off+10] << 16) | ((uint32_t)tiff_base[off+11] << 24)) :
+                                                 (((uint32_t)tiff_base[off+8] << 24) | ((uint32_t)tiff_base[off+9] << 16) | ((uint32_t)tiff_base[off+10] << 8) | (uint32_t)tiff_base[off+11]);
+                if(type == 2 && count >= 19 && count < 64 && (tag == 0x9003 || tag == 0x0132))
+                {
+                  const char *str_val = (count <= 4) ? (const char *)&tiff_base[off + 8] :
+                                        (val_off + count <= tiff_len ? (const char *)&tiff_base[val_off] : NULL);
+                  if(str_val != NULL && isdigit((unsigned char)str_val[0]) && str_val[4] == ':')
+                  {
+                    snprintf(date_str, sizeof(date_str), "%c%c%c%c%c%c%c%c_%c%c%c%c%c%c",
+                             str_val[0], str_val[1], str_val[2], str_val[3],
+                             str_val[5], str_val[6], str_val[8], str_val[9],
+                             str_val[11], str_val[12], str_val[14], str_val[15],
+                             str_val[17], str_val[18]);
+                    break;
+                  }
+                }
+              }
+            }
+            break;
+          }
+          pos += 2 + len;
+        }
+      }
+    }
+  }
+  fclose(file);
+
+  if(date_str[0] != '\0')
+  {
+    struct tm tm_date;
+    time_t t;
+    char prefix[128];
+    memset(&tm_date, 0, sizeof(tm_date));
+    if(sscanf(date_str, "%4d%2d%2d_%2d%2d%2d",
+              &tm_date.tm_year, &tm_date.tm_mon, &tm_date.tm_mday,
+              &tm_date.tm_hour, &tm_date.tm_min, &tm_date.tm_sec) == 6)
+    {
+      tm_date.tm_year -= 1900;
+      tm_date.tm_mon -= 1;
+      t = mktime(&tm_date);
+      if(t != (time_t)-1)
+        set_date(file_recovery->filename, t, t);
+    }
+    if(model_str[0] != '\0')
+      snprintf(prefix, sizeof(prefix), "%s_%s", date_str, model_str);
+    else
+      snprintf(prefix, sizeof(prefix), "%s", date_str);
+    file_rename(file_recovery, prefix, strlen(prefix), 0, NULL, 1);
+  }
+  else if(model_str[0] != '\0')
+  {
+    file_rename(file_recovery, model_str, strlen(model_str), 0, NULL, 1);
+  }
+}
 
 /*@
   @ requires buffer_size >= sizeof(struct header_raf);
@@ -111,6 +231,7 @@ static int header_check_raf(const unsigned char *buffer, const unsigned int buff
   file_recovery_new->calculated_file_size=size;
   /* The size is bigger than calculated_file_size */
   file_recovery_new->file_check=&file_check_size_min;
+  file_recovery_new->file_rename=&file_rename_raf;
   return 1;
 }
 

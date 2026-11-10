@@ -57,11 +57,11 @@ void photorec_info(WINDOW *window, const file_stat_t *file_stats)
   new_file_stats=(file_stat_t*)MALLOC(nbr*sizeof(file_stat_t));
   memcpy(new_file_stats, file_stats, nbr*sizeof(file_stat_t));
   qsort(new_file_stats, nbr, sizeof(file_stat_t), sorfile_stat_ts);
-  for(i=0; i<9 && i<nbr && new_file_stats[i].recovered>0; i++)
+  for(i=0; i<8 && i<nbr && new_file_stats[i].recovered>0; i++)
   {
-    wmove(window,12+i,0);
+    wmove(window,15+i,0);
     wclrtoeol(window);
-    wprintw(window, "%s: %u recovered\n",
+    wprintw(window, "  %-12s: %6u recovered\n",
 	(new_file_stats[i].file_hint->extension!=NULL?
 	 new_file_stats[i].file_hint->extension:""),
 	new_file_stats[i].recovered);
@@ -70,9 +70,9 @@ void photorec_info(WINDOW *window, const file_stat_t *file_stats)
     others+=new_file_stats[i].recovered;
   if(others>0)
   {
-    wmove(window,12+9,0);
+    wmove(window,15+8,0);
     wclrtoeol(window);
-    wprintw(window, "others: %u recovered\n", others);
+    wprintw(window, "  %-12s: %6u recovered\n", "others", others);
   }
   free(new_file_stats);
 }
@@ -81,11 +81,13 @@ pstatus_t photorec_progressbar(WINDOW *window, const unsigned int pass, const st
 {
   const partition_t *partition=params->partition;
   const unsigned int sector_size=params->disk->sector_size;
+  int key_action;
+
   if(params->status!=STATUS_FIND_OFFSET)
   {
     wmove(window,8,0);
     wclrtoeol(window);
-    wprintw(window,"Destination %s", params->recup_dir);
+    wprintw(window,"Destination: %s", params->recup_dir);
   }
   wmove(window,10,0);
   wclrtoeol(window);
@@ -97,7 +99,7 @@ pstatus_t photorec_progressbar(WINDOW *window, const unsigned int pass, const st
   }
   else
   {
-    wprintw(window,"Pass %u - Reading sector %10llu/%llu, ",
+    wprintw(window,"Pass %u - Sector %llu/%llu  -  ",
 	pass,
 	(unsigned long long)((offset-partition->part_offset)/sector_size),
 	(unsigned long long)(partition->part_size/sector_size));
@@ -105,27 +107,97 @@ pstatus_t photorec_progressbar(WINDOW *window, const unsigned int pass, const st
   if(params->status==STATUS_FIND_OFFSET)
     wprintw(window,"%u/10 headers found\n", params->file_nbr);
   else
-    wprintw(window,"%u files found\n", params->file_nbr);
+    wprintw(window,"%u files carved\n", params->file_nbr);
+
+  /* Graphical Progress Bar & Speed */
   wmove(window,11,0);
+  wclrtoeol(window);
+  if(partition->part_size > 0 && offset >= partition->part_offset)
+  {
+    const uint64_t bytes_done = offset - partition->part_offset;
+    const double pct = ((double)bytes_done * 100.0) / (double)partition->part_size;
+    const int bar_total = 36;
+    int filled = (int)(pct * (double)bar_total / 100.0);
+    int b;
+    double speed_mb_s = 0.0;
+    if(filled > bar_total) filled = bar_total;
+    if(filled < 0) filled = 0;
+
+    if(current_time > params->real_start_time)
+    {
+      const time_t el = current_time - params->real_start_time;
+      speed_mb_s = (el > 0) ? ((double)bytes_done / (1024.0 * 1024.0 * (double)el)) : 0.0;
+    }
+
+    waddstr(window, "Progress: [");
+    if(has_colors())
+      wbkgdset(window, ' ' | A_BOLD | COLOR_PAIR(3));
+    for(b = 0; b < filled; b++)
+      waddch(window, '=');
+    if(filled < bar_total)
+      waddch(window, '>');
+    for(b = filled + 1; b < bar_total; b++)
+      waddch(window, ' ');
+    if(has_colors())
+      wbkgdset(window, ' ' | COLOR_PAIR(0));
+    wprintw(window, "] %5.1f%%   Speed: %5.1f MB/s\n", (pct > 100.0 ? 100.0 : pct), speed_mb_s);
+  }
+
+  /* Elapsed & ETA */
+  wmove(window,12,0);
   wclrtoeol(window);
   if(current_time > params->real_start_time)
   {
     const time_t elapsed_time=current_time - params->real_start_time;
-    wprintw(window,"Elapsed time %uh%02um%02us",
+    wprintw(window,"Elapsed: %uh%02um%02us",
 	(unsigned)(elapsed_time/60/60),
 	(unsigned)(elapsed_time/60%60),
 	(unsigned)(elapsed_time%60));
     if(offset > partition->part_offset && params->status!=STATUS_EXT2_ON_BF && params->status!=STATUS_EXT2_OFF_BF)
     {
       const time_t eta=(partition->part_offset+partition->part_size-1-offset)*elapsed_time/(offset-partition->part_offset);
-      wprintw(window," - Estimated time to completion %uh%02um%02u\n",
+      wprintw(window,"   ETA: %uh%02um%02us\n",
 	  (unsigned)(eta/3600),
 	  (unsigned)((eta/60)%60),
 	  (unsigned)(eta%60));
     }
   }
+
+  /* Shortcuts bar */
+  wmove(window,13,0);
+  wclrtoeol(window);
+  if(has_colors())
+    wbkgdset(window, ' ' | COLOR_PAIR(2));
+  wprintw(window, "Shortcuts: [Enter / S] Stop   [Space / P] Pause");
+  if(has_colors())
+    wbkgdset(window, ' ' | COLOR_PAIR(0));
+
   photorec_info(window, params->file_stats);
   wrefresh(window);
-  return(check_enter_key_or_s(window)==0?PSTATUS_OK:PSTATUS_STOP);
+
+  key_action = check_enter_key_or_s(window);
+  if(key_action == 1)
+    return PSTATUS_STOP;
+  if(key_action == 4)
+  {
+    wmove(window, 13, 0);
+    wclrtoeol(window);
+    wattrset(window, A_REVERSE | (has_colors() ? COLOR_PAIR(4) : 0));
+    wprintw(window, "  *** RECOVERY PAUSED - Press Space / P to Resume, or S / Q to Stop ***  ");
+    wattroff(window, A_REVERSE | (has_colors() ? COLOR_PAIR(4) : 0));
+    wrefresh(window);
+    while(1)
+    {
+      const int ch = wgetch(window);
+      if(ch == ' ' || ch == 'p' || ch == 'P' || ch == '\n' || ch == '\r')
+        break;
+      if(ch == 'q' || ch == 'Q' || ch == 's' || ch == 'S')
+        return PSTATUS_STOP;
+    }
+    wmove(window, 13, 0);
+    wclrtoeol(window);
+    wrefresh(window);
+  }
+  return PSTATUS_OK;
 }
 #endif

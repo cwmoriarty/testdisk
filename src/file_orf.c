@@ -69,6 +69,7 @@ static int header_check_orf_IIRO(const unsigned char *buffer, const unsigned int
   file_recovery_new->extension=file_hint_orf.extension;
   file_recovery_new->time=get_date_from_tiff_header(buffer, buffer_size);
   file_recovery_new->file_check=&file_check_tiff_le;
+  file_recovery_new->file_rename=&file_rename_tiff;
   return 1;
 }
 

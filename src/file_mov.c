@@ -29,8 +29,10 @@
 #endif
 #include <stdio.h>
 #include <ctype.h>
+#include <time.h>
 #include "types.h"
 #include "filegen.h"
+#include "setdate.h"
 #include "common.h"
 #include "log.h"
 #if defined(__FRAMAC__)
@@ -91,20 +93,125 @@ struct atom64_struct
 static void file_rename_mov(file_recovery_t *file_recovery)
 {
   FILE *file;
-  unsigned char buffer[512];
+  unsigned char buffer[65536];
+  size_t n;
+  char brand[8] = "";
+  char date_str[32] = "";
+  size_t off;
+
   if((file=fopen(file_recovery->filename, "rb"))==NULL)
     return;
-  if(fread(&buffer,sizeof(buffer),1,file)!=1)
+  n = fread(buffer, 1, sizeof(buffer), file);
+
+  if(n >= 12 && buffer[4]=='f' && buffer[5]=='t' && buffer[6]=='y' && buffer[7]=='p')
   {
-    fclose(file);
-    return ;
+    int b;
+    for(b = 0; b < 4; b++)
+    {
+      const unsigned char c = buffer[8 + b];
+      if(isalnum(c))
+        brand[b] = (char)c;
+      else if(c == ' ' || c == '_' || c == '-')
+        brand[b] = (b > 0 && brand[b-1] != '_') ? '_' : '\0';
+      else
+        brand[b] = '\0';
+    }
+    while(b > 0 && brand[b-1] == '_') brand[--b] = '\0';
+    brand[4] = '\0';
+  }
+
+  for(off = 0; off + 16 <= n; off++)
+  {
+    if(buffer[off] == 'm' && buffer[off+1] == 'v' && buffer[off+2] == 'h' && buffer[off+3] == 'd')
+    {
+      const unsigned int version = buffer[off + 4];
+      uint64_t creation_time = 0;
+      if(version == 0 && off + 12 <= n)
+      {
+        creation_time = be32(&buffer[off + 8]);
+      }
+      else if(version == 1 && off + 16 <= n)
+      {
+        creation_time = be64(&buffer[off + 8]);
+      }
+      if(creation_time > 2082844800ULL)
+      {
+        const uint64_t unix_sec = creation_time - 2082844800ULL;
+        if(unix_sec >= 946684800ULL && unix_sec <= 2524608000ULL)
+        {
+          const time_t t = (time_t)unix_sec;
+          struct tm tm_date;
+          if(localtime_r(&t, &tm_date) != NULL)
+          {
+            snprintf(date_str, sizeof(date_str), "%04d%02d%02d_%02d%02d%02d",
+                     tm_date.tm_year + 1900, tm_date.tm_mon + 1, tm_date.tm_mday,
+                     tm_date.tm_hour, tm_date.tm_min, tm_date.tm_sec);
+            set_date(file_recovery->filename, t, t);
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  if(date_str[0] == '\0')
+  {
+    if(fseek(file, 0, SEEK_END) == 0)
+    {
+      const long fsize = ftell(file);
+      if(fsize > (long)sizeof(buffer))
+      {
+        if(fseek(file, -(long)sizeof(buffer), SEEK_END) == 0)
+        {
+          n = fread(buffer, 1, sizeof(buffer), file);
+          for(off = 0; off + 16 <= n; off++)
+          {
+            if(buffer[off] == 'm' && buffer[off+1] == 'v' && buffer[off+2] == 'h' && buffer[off+3] == 'd')
+            {
+              const unsigned int version = buffer[off + 4];
+              uint64_t creation_time = 0;
+              if(version == 0 && off + 12 <= n)
+                creation_time = be32(&buffer[off + 8]);
+              else if(version == 1 && off + 16 <= n)
+                creation_time = be64(&buffer[off + 8]);
+              if(creation_time > 2082844800ULL)
+              {
+                const uint64_t unix_sec = creation_time - 2082844800ULL;
+                if(unix_sec >= 946684800ULL && unix_sec <= 2524608000ULL)
+                {
+                  const time_t t = (time_t)unix_sec;
+                  struct tm tm_date;
+                  if(localtime_r(&t, &tm_date) != NULL)
+                  {
+                    snprintf(date_str, sizeof(date_str), "%04d%02d%02d_%02d%02d%02d",
+                             tm_date.tm_year + 1900, tm_date.tm_mon + 1, tm_date.tm_mday,
+                             tm_date.tm_hour, tm_date.tm_min, tm_date.tm_sec);
+                    set_date(file_recovery->filename, t, t);
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
   }
   fclose(file);
-#if defined(__FRAMAC__)
-  Frama_C_make_unknown((char *)buffer, sizeof(buffer));
-#endif
-  buffer[8]='\0';
-  file_rename(file_recovery, buffer, sizeof(buffer), 4, NULL, 1);
+
+  if(date_str[0] != '\0')
+  {
+    char prefix[64];
+    if(brand[0] != '\0')
+      snprintf(prefix, sizeof(prefix), "%s_%s", date_str, brand);
+    else
+      snprintf(prefix, sizeof(prefix), "%s", date_str);
+    file_rename(file_recovery, prefix, strlen(prefix), 0, NULL, 1);
+  }
+  else if(brand[0] != '\0')
+  {
+    file_rename(file_recovery, brand, strlen(brand), 0, NULL, 1);
+  }
 }
 
 /*@

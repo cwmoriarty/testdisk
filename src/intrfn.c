@@ -1212,6 +1212,10 @@ int check_enter_key_or_s(WINDOW *window)
       return 2;
     case '+':
       return 3;
+    case ' ':
+    case 'p':
+    case 'P':
+      return 4;
   }
   return 0;
 }
