@@ -194,6 +194,31 @@ static void draw_media_inspector(WINDOW *win, int top_y, int left_x, int box_h, 
     mvwprintw(win, cur_y++, left_x + 2, "Partition Map:%s", disk->arch->part_name);
   }
 
+  /* S.M.A.R.T. Health Diagnostics */
+  if(disk->smart_status != NULL && cur_y < top_y + box_h - 2)
+  {
+    mvwprintw(win, cur_y, left_x + 2, "SMART Health: ");
+    if(disk->smart_healthy > 0)
+    {
+      if(has_colors()) wattron(win, COLOR_PAIR(2) | A_BOLD);
+      wprintw(win, "%s", disk->smart_status);
+      if(has_colors()) wattroff(win, COLOR_PAIR(2) | A_BOLD);
+    }
+    else if(disk->smart_healthy < 0)
+    {
+      if(has_colors()) wattron(win, COLOR_PAIR(1) | A_BOLD);
+      wprintw(win, "%s", disk->smart_status);
+      if(has_colors()) wattroff(win, COLOR_PAIR(1) | A_BOLD);
+    }
+    else
+    {
+      if(has_colors()) wattron(win, COLOR_PAIR(7));
+      wprintw(win, "%s", disk->smart_status);
+      if(has_colors()) wattroff(win, COLOR_PAIR(7));
+    }
+    cur_y++;
+  }
+
   /* Recommended Action */
   if(cur_y < top_y + box_h - 2)
   {

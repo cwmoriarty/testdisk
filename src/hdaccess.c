@@ -213,6 +213,7 @@ void generic_clean(disk_t *disk)
   free(disk->fw_rev);
   free(disk->bus_type);
   free(disk->medium_type);
+  free(disk->smart_status);
   free(disk->data);
   free(disk->rbuffer);
   free(disk->wbuffer);
@@ -222,6 +223,7 @@ void generic_clean(disk_t *disk)
   disk->fw_rev=NULL;
   disk->bus_type=NULL;
   disk->medium_type=NULL;
+  disk->smart_status=NULL;
   disk->data=NULL;
   disk->rbuffer=NULL;
   disk->wbuffer=NULL;
@@ -355,6 +357,47 @@ static list_disk_t *hd_parse_apple(list_disk_t *list_disk, const int verbose, co
                     CFStringGetCString(icon, interconnect, sizeof(interconnect), kCFStringEncodingUTF8);
                   CFRelease(protoProp);
                 }
+
+                /* S.M.A.R.T. Health Query */
+                CFTypeRef smartProp = IORegistryEntrySearchCFProperty(parent, kIOServicePlane, CFSTR("SMART Status"), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+                if(!smartProp)
+                  smartProp = IORegistryEntrySearchCFProperty(parent, kIOServicePlane, CFSTR("S.M.A.R.T. Status"), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+
+                if(smartProp)
+                {
+                  if(CFGetTypeID(smartProp) == CFStringGetTypeID())
+                  {
+                    char smartBuf[64] = "";
+                    CFStringGetCString((CFStringRef)smartProp, smartBuf, sizeof(smartBuf), kCFStringEncodingUTF8);
+                    if(strcasecmp(smartBuf, "Verified") == 0 || strcasecmp(smartBuf, "OK") == 0)
+                    {
+                      disk_car->smart_healthy = 1;
+                      disk_car->smart_status = strdup("Verified (Healthy)");
+                    }
+                    else if(strcasestr(smartBuf, "Fail") != NULL || strcasestr(smartBuf, "Error") != NULL)
+                    {
+                      disk_car->smart_healthy = -1;
+                      disk_car->smart_status = strdup("FAILING (Degraded)");
+                    }
+                    else
+                    {
+                      disk_car->smart_healthy = 1;
+                      disk_car->smart_status = strdup(smartBuf);
+                    }
+                  }
+                  CFRelease(smartProp);
+                }
+
+                if(disk_car->smart_status == NULL)
+                {
+                  CFTypeRef nvmeSmart = IORegistryEntrySearchCFProperty(parent, kIOServicePlane, CFSTR("NVMe SMART Capable"), kCFAllocatorDefault, kIORegistryIterateParents | kIORegistryIterateRecursively);
+                  if(nvmeSmart)
+                  {
+                    disk_car->smart_healthy = 1;
+                    disk_car->smart_status = strdup("Verified (NVMe SMART)");
+                    CFRelease(nvmeSmart);
+                  }
+                }
                 IOObjectRelease(parent);
               }
 
@@ -390,6 +433,25 @@ static list_disk_t *hd_parse_apple(list_disk_t *list_disk, const int verbose, co
                    strstr(vendorName, "JMicron") || disk_car->is_ssd == 0)
                 {
                   disk_car->is_usb_adapter = 1;
+                }
+              }
+
+              if(disk_car->smart_status == NULL)
+              {
+                if(disk_car->is_ssd && disk_car->bus_type && strstr(disk_car->bus_type, "NVMe"))
+                {
+                  disk_car->smart_healthy = 1;
+                  disk_car->smart_status = strdup("Verified (NVMe)");
+                }
+                else if(disk_car->is_usb_adapter || (disk_car->bus_type && strcmp(disk_car->bus_type, "USB") == 0))
+                {
+                  disk_car->smart_healthy = 0;
+                  disk_car->smart_status = strdup("Not Supported (USB)");
+                }
+                else
+                {
+                  disk_car->smart_healthy = 0;
+                  disk_car->smart_status = strdup("Not Available");
                 }
               }
 
@@ -1778,6 +1840,13 @@ static int file_pread_aux(const disk_t *disk, void *buf, const unsigned int coun
 #endif
   if(ret!=count)
   {
+    ((disk_t *)disk)->consecutive_read_errors++;
+    ((disk_t *)disk)->total_bad_sectors += (count > 0 && disk->sector_size > 0) ? (count / disk->sector_size) : 1;
+    if(((disk_t *)disk)->consecutive_read_errors == 5)
+    {
+      log_error("[TIMEOUT / HARDWARE WARNING] Multiple consecutive I/O read errors on %s at LBA %llu. Media may be failing or degraded.\n",
+          (disk->device ? disk->device : "drive"), (unsigned long long)(offset / disk->sector_size));
+    }
     if(offset+count <= disk->disk_size && offset+count <= disk->disk_real_size)
     {
       log_error("file_pread(%d,%u,buffer,%lu(%u/%u/%u)) read err: ",
@@ -1799,6 +1868,10 @@ static int file_pread_aux(const disk_t *disk, void *buf, const unsigned int coun
       return -1;
     }
     memset((char*)buf+ret,0,count-ret);
+  }
+  else
+  {
+    ((disk_t *)disk)->consecutive_read_errors = 0;
   }
 #ifdef HDCLONE
   if(ret>0)
@@ -2380,5 +2453,9 @@ void init_disk(disk_t *disk)
   disk->is_usb_adapter=0;
   disk->bus_type=NULL;
   disk->medium_type=NULL;
+  disk->smart_status=NULL;
+  disk->smart_healthy=0;
+  disk->consecutive_read_errors=0;
+  disk->total_bad_sectors=0;
   disk->unit=UNIT_CHS;
 }

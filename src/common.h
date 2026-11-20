@@ -444,6 +444,10 @@ struct param_disk_struct
   int is_usb_adapter;
   char *bus_type;
   char *medium_type;
+  char *smart_status;
+  int smart_healthy;
+  int consecutive_read_errors;
+  uint64_t total_bad_sectors;
   const char *(*description)(disk_t *disk);
   const char *(*description_short)(disk_t *disk);
   int (*pread)(disk_t *disk, void *buf, const unsigned int count, const uint64_t offset);

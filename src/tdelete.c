@@ -33,6 +33,7 @@
 #endif
 #include "log.h"
 #include "tdelete.h"
+#include "rollback.h"
 
 #ifdef HAVE_NCURSES
 #define INTER_DISK_X	0
@@ -52,13 +53,24 @@ int write_clean_table(disk_t *disk_car)
   wprintw(stdscr,msg_WRITE_CLEAN_TABLE);
   if(ask_YN(stdscr)!=0 && ask_confirmation("Clear partition table, confirm ? (Y/N)")!=0)
   {
+    char rollback_file[256] = "";
+    safety_rollback_backup(disk_car, "Clear Partition Table", rollback_file, sizeof(rollback_file));
     if(disk_car->arch->erase_list_part(disk_car))
     {
       display_message("Write error: Can't clear partition table.\n");
       return 2;
     }
     else
-      display_message("Partition table has been cleared.\nYou have to reboot for the change to take effect.\n");
+    {
+      char msg[512];
+      if(rollback_file[0] != '\0')
+        snprintf(msg, sizeof(msg),
+          "Partition table has been cleared.\nSafety Rollback Journal saved: %s\nTo undo: testdisk-ng --undo %s\nYou have to reboot for the change to take effect.\n",
+          rollback_file, rollback_file);
+      else
+        snprintf(msg, sizeof(msg), "Partition table has been cleared.\nYou have to reboot for the change to take effect.\n");
+      display_message(msg);
+    }
   }
   return 0;
 }
@@ -70,6 +82,8 @@ int write_clean_table(disk_t *disk_car)
     log_error("Partition table clearing is not implemented for this partition type.\n");
     return 1;
   }
+  char rollback_file[256] = "";
+  safety_rollback_backup(disk_car, "Clear Partition Table", rollback_file, sizeof(rollback_file));
   if(disk_car->arch->erase_list_part(disk_car))
   {
     log_error("Write error: Can't clear partition table.\n");

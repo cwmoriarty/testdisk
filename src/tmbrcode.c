@@ -36,6 +36,7 @@
 #endif
 #include "log.h"
 #include "tmbrcode.h"
+#include "rollback.h"
 
 #ifdef HAVE_NCURSES
 #define INTER_DISK_X	0
@@ -54,13 +55,24 @@ int write_MBR_code(disk_t *disk_car)
   wprintw(stdscr,msg_WRITE_MBR_CODE);
   if(ask_YN(stdscr)!=0 && ask_confirmation("Write a new copy of MBR code, confirm ? (Y/N)")!=0)
   {
+    char rollback_file[256] = "";
+    safety_rollback_backup(disk_car, "Write MBR Code", rollback_file, sizeof(rollback_file));
     if(disk_car->arch->write_MBR_code(disk_car))
     {
       display_message("Write error: Can't write new MBR code.\n");
       return 2;
     }
     else
-      display_message("A new copy of MBR code has been written.\nYou have to reboot for the change to take effect.\n");
+    {
+      char msg[512];
+      if(rollback_file[0] != '\0')
+        snprintf(msg, sizeof(msg),
+          "A new copy of MBR code has been written.\nSafety Rollback Journal saved: %s\nTo undo: testdisk-ng --undo %s\nYou have to reboot for the change to take effect.\n",
+          rollback_file, rollback_file);
+      else
+        snprintf(msg, sizeof(msg), "A new copy of MBR code has been written.\nYou have to reboot for the change to take effect.\n");
+      display_message(msg);
+    }
   }
   return 0;
 }
@@ -72,6 +84,8 @@ int write_MBR_code(disk_t *disk_car)
     log_error("Function to write a new MBR code not implemented for this partition type.\n");
     return 1;
   }
+  char rollback_file[256] = "";
+  safety_rollback_backup(disk_car, "Write MBR Code", rollback_file, sizeof(rollback_file));
   if(disk_car->arch->write_MBR_code(disk_car))
   {
     log_error("Write error: Can't write new MBR code.\n");

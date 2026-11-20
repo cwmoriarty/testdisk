@@ -79,6 +79,7 @@
 #include "nodisk.h"
 #include "autoset.h"
 #include "hidden.h"
+#include "rollback.h"
 
 #ifdef HAVE_SIGACTION
 int need_to_stop=0;
@@ -109,11 +110,13 @@ static void display_help(void)
   printf("\n" \
       "Usage: testdisk-ng [/log] [/debug] [file.dd|file.e01|device]\n"\
       "       testdisk-ng /list  [/log]   [file.dd|file.e01|device]\n" \
+      "       testdisk-ng --undo <file.bin> [device]\n" \
       "       testdisk-ng /version\n" \
       "\n" \
       "/log          : create a testdisk.log file\n" \
       "/debug        : add debug information\n" \
       "/list         : display current partitions\n" \
+      "--undo <file> : restore partition table from safety rollback journal\n" \
       "\n" \
       "TestDisk-NG checks and recovers lost partitions\n" \
       "It works with :\n" \
@@ -305,6 +308,24 @@ int main( int argc, char **argv )
       create_backup=1;
     else if((strcmp(argv[i],"/direct")==0) || (strcmp(argv[i],"-direct")==0))
       testdisk_mode|=TESTDISK_O_DIRECT;
+    else if(strcmp(argv[i], "--undo")==0 || strcmp(argv[i], "/undo")==0 || strcmp(argv[i], "-undo")==0)
+    {
+      if(i + 1 >= argc)
+      {
+        display_help();
+        log_close();
+        return 1;
+      }
+      const char *undo_file = argv[++i];
+      const char *override_dev = NULL;
+      if(i + 1 < argc && argv[i + 1][0] != '-' && argv[i + 1][0] != '/')
+      {
+        override_dev = argv[++i];
+      }
+      int res = testdisk_rollback_restore(undo_file, override_dev, 0);
+      log_close();
+      return (res == 0 ? 0 : 1);
+    }
     else if((strcmp(argv[i],"/help")==0) || (strcmp(argv[i],"-help")==0) || (strcmp(argv[i],"--help")==0) ||
       (strcmp(argv[i],"/h")==0) || (strcmp(argv[i],"-h")==0) ||
       (strcmp(argv[i],"/?")==0) || (strcmp(argv[i],"-?")==0))

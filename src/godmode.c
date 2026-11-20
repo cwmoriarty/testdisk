@@ -48,6 +48,7 @@
 #include "fat32.h"
 #include "tntfs.h"
 #include "thfs.h"
+#include "rollback.h"
 #include "partgpt.h"
 #include "partmacn.h"
 
@@ -1507,6 +1508,8 @@ static int ask_write_partition_table(const list_part_t *list_part_org, disk_t *d
 #endif
 	    )
 	  {
+	    char rollback_file[256] = "";
+	    safety_rollback_backup(disk_car, "Write Partition Table", rollback_file, sizeof(rollback_file));
 	    log_info("write!\n");
 	    if(disk_car->arch->write_part(disk_car, list_part, RW, verbose))
 	    {
@@ -1516,7 +1519,16 @@ static int ask_write_partition_table(const list_part_t *list_part_org, disk_t *d
 	    {
 	      use_backup(disk_car,list_part,verbose,dump_ind,expert,current_cmd);
 	      if(no_confirm==0)
-		display_message("You will have to reboot for the change to take effect.\n");
+	      {
+		char success_msg[512];
+		if(rollback_file[0] != '\0')
+		  snprintf(success_msg, sizeof(success_msg),
+		    "You will have to reboot for the change to take effect.\nSafety Rollback Journal saved:\n%s\nTo undo: testdisk-ng --undo %s\n",
+		    rollback_file, rollback_file);
+		else
+		  snprintf(success_msg, sizeof(success_msg), "You will have to reboot for the change to take effect.\n");
+		display_message(success_msg);
+	      }
 	    }
 	  }
 	  else
