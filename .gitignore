@@ -36,3 +36,4 @@ Makefile
 # OS specific files
 *~
 .DS_Store
+*.trs
