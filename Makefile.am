@@ -38,7 +38,10 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog INFO INSTALL NEWS README.md README_dev_ph
 	win/readme.txt win/photorec_win.exe.manifest win/qphotorec_win.exe.manifest \
 	win/testdisk_win.exe.manifest \
 	Android.mk jni/Android.mk \
+	tests/test_recovery_and_rollback.sh \
 	.travis.yml
+
+TESTS = tests/test_recovery_and_rollback.sh
 
 install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)$(docdir)

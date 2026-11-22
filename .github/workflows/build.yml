@@ -71,6 +71,11 @@ jobs:
           ./src/photorec-ng /version
           ./src/fidentify /version || true
 
+      - name: Run Integration Tests
+        run: |
+          chmod +x tests/test_recovery_and_rollback.sh
+          ./tests/test_recovery_and_rollback.sh
+
       - name: Package Release Archive
         run: |
           TAR_NAME="testdisk-ng-v7.2-WIP-${{ matrix.asset_os }}-${{ matrix.asset_arch }}.tar.gz"

@@ -110,13 +110,15 @@ static void display_help(void)
   printf("\n" \
       "Usage: testdisk-ng [/log] [/debug] [file.dd|file.e01|device]\n"\
       "       testdisk-ng /list  [/log]   [file.dd|file.e01|device]\n" \
-      "       testdisk-ng --undo <file.bin> [device]\n" \
+      "       testdisk-ng --snapshot <device> [description]\n" \
+      "       testdisk-ng --undo <file.bin> [device] [--yes]\n" \
       "       testdisk-ng /version\n" \
       "\n" \
-      "/log          : create a testdisk.log file\n" \
-      "/debug        : add debug information\n" \
-      "/list         : display current partitions\n" \
-      "--undo <file> : restore partition table from safety rollback journal\n" \
+      "/log                 : create a testdisk.log file\n" \
+      "/debug               : add debug information\n" \
+      "/list                : display current partitions\n" \
+      "--snapshot <device>  : capture safety rollback journal before disk modifications\n" \
+      "--undo <file>        : restore partition table from safety rollback journal\n" \
       "\n" \
       "TestDisk-NG checks and recovers lost partitions\n" \
       "It works with :\n" \
@@ -308,21 +310,70 @@ int main( int argc, char **argv )
       create_backup=1;
     else if((strcmp(argv[i],"/direct")==0) || (strcmp(argv[i],"-direct")==0))
       testdisk_mode|=TESTDISK_O_DIRECT;
-    else if(strcmp(argv[i], "--undo")==0 || strcmp(argv[i], "/undo")==0 || strcmp(argv[i], "-undo")==0)
+    else if(strcmp(argv[i], "--snapshot")==0 || strcmp(argv[i], "--backup-journal")==0)
     {
+      const char *target_dev;
+      const char *desc;
+      disk_t *disk_car;
+      char journal_path[256];
+      int res;
       if(i + 1 >= argc)
       {
         display_help();
         log_close();
         return 1;
       }
-      const char *undo_file = argv[++i];
-      const char *override_dev = NULL;
-      if(i + 1 < argc && argv[i + 1][0] != '-' && argv[i + 1][0] != '/')
+      target_dev = argv[++i];
+      desc = (i + 1 < argc && argv[i + 1][0] != '-') ? argv[++i] : "Manual Safety Snapshot";
+      disk_car = file_test_availability(target_dev, verbose, TESTDISK_O_RDONLY);
+      if(disk_car == NULL)
       {
-        override_dev = argv[++i];
+        fprintf(stderr, "Error: Cannot open device '%s' for snapshot: %s\n", target_dev, strerror(errno));
+        log_close();
+        return 1;
       }
-      int res = testdisk_rollback_restore(undo_file, override_dev, 0);
+      journal_path[0] = '\0';
+      res = safety_rollback_backup(disk_car, desc, journal_path, sizeof(journal_path));
+      if(res == 0)
+        printf("Created safety rollback journal: %s\n", journal_path);
+      else
+        fprintf(stderr, "Failed to create safety rollback journal (code %d).\n", res);
+      disk_car->clean(disk_car);
+      log_close();
+      return (res == 0 ? 0 : 1);
+    }
+    else if(strcmp(argv[i], "--undo")==0 || strcmp(argv[i], "/undo")==0 || strcmp(argv[i], "-undo")==0)
+    {
+      const char *undo_file;
+      const char *override_dev = NULL;
+      int non_interactive = 0;
+      int res;
+      if(i + 1 >= argc)
+      {
+        display_help();
+        log_close();
+        return 1;
+      }
+      undo_file = argv[++i];
+      while(i + 1 < argc)
+      {
+        if(strcmp(argv[i + 1], "-y") == 0 || strcmp(argv[i + 1], "--yes") == 0 ||
+           strcmp(argv[i + 1], "/yes") == 0 || strcmp(argv[i + 1], "-noconfirm") == 0 ||
+           strcmp(argv[i + 1], "--noconfirm") == 0 || strcmp(argv[i + 1], "/noconfirm") == 0)
+        {
+          non_interactive = 1;
+          i++;
+        }
+        else if(override_dev == NULL && argv[i + 1][0] != '-')
+        {
+          override_dev = argv[++i];
+        }
+        else
+        {
+          break;
+        }
+      }
+      res = testdisk_rollback_restore(undo_file, override_dev, non_interactive);
       log_close();
       return (res == 0 ? 0 : 1);
     }
