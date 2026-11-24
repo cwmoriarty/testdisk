@@ -69,12 +69,17 @@ jobs:
 
       - name: Run Integration Tests
         run: |
-          chmod +x tests/test_recovery_and_rollback.sh
+          chmod +x tests/test_recovery_and_rollback.sh tests/test_corrupted_fuzz.sh
           ./tests/test_recovery_and_rollback.sh
+          ./tests/test_corrupted_fuzz.sh
 
       - name: Package Release Archive
         run: |
-          TAR_NAME="testdisk-ng-v7.2-WIP-${{ matrix.asset_os }}-${{ matrix.asset_arch }}.tar.gz"
+          VERSION_TAG="v7.3.0"
+          if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
+            VERSION_TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          TAR_NAME="testdisk-ng-${VERSION_TAG}-${{ matrix.asset_os }}-${{ matrix.asset_arch }}.tar.gz"
           mkdir -p dist/bin
           cp src/testdisk-ng dist/bin/
           cp src/photorec-ng dist/bin/

@@ -68,6 +68,7 @@ static const char *extension_3gp="3gp";
 static const char *extension_3g2="3g2";
 static const char *extension_heic="heic";
 static const char *extension_avif="avif";
+static const char *extension_braw="braw";
 static const char *extension_jxl="jxl";
 static const char *extension_jp2="jp2";
 static const char *extension_cr3="cr3";
@@ -221,7 +222,8 @@ static void file_rename_mov(file_recovery_t *file_recovery)
   @*/
 static inline int is_known_atom(const unsigned char *atom)
 {
-  if( (atom[0]=='c' && atom[1]=='m' && atom[2]=='o' && atom[3]=='v') ||
+  if( (atom[0]=='b' && atom[1]=='x' && atom[2]=='m' && atom[3]=='l') ||
+      (atom[0]=='c' && atom[1]=='m' && atom[2]=='o' && atom[3]=='v') ||
       (atom[0]=='c' && atom[1]=='m' && atom[2]=='v' && atom[3]=='d') ||
       (atom[0]=='d' && atom[1]=='c' && atom[2]=='o' && atom[3]=='m') ||
       (atom[0]=='f' && atom[1]=='r' && atom[2]=='e' && atom[3]=='a') ||
@@ -338,9 +340,12 @@ static data_check_t data_check_mov(const unsigned char *buffer, const unsigned i
   @ ensures (\result == 1) ==> (file_recovery_new->extension == file_hint_mov.extension ||
 				file_recovery_new->extension == extension_3g2 ||
 				file_recovery_new->extension == extension_3gp ||
+				file_recovery_new->extension == extension_avif ||
+				file_recovery_new->extension == extension_braw ||
 				file_recovery_new->extension == extension_cr3 ||
 				file_recovery_new->extension == extension_heic ||
 				file_recovery_new->extension == extension_jp2 ||
+				file_recovery_new->extension == extension_jxl ||
 				file_recovery_new->extension == extension_m4a ||
 				file_recovery_new->extension == extension_mp4);
   @ ensures (\result == 1) ==> (file_recovery_new->time == 0);
@@ -444,9 +449,9 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
     }
     if(buffer[i+4]=='f' && buffer[i+5]=='t' && buffer[i+6]=='y' && buffer[i+7]=='p')
     {
-      if(atom_size < 20 || (atom_size&3)!=0 || atom_size>256)
+      if(atom_size < 16 || (atom_size&3)!=0 || atom_size>256)
 	return 0;
-      /*@ assert 20 <= atom_size <= 256; */
+      /*@ assert 16 <= atom_size <= 256; */
       if(memcmp(&buffer[i+8], "isom", 4)==0 ||
 	  memcmp(&buffer[i+8], "mp41", 4)==0 ||
 	  memcmp(&buffer[i+8], "mp42", 4)==0 ||
@@ -594,6 +599,20 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
 	file_recovery_new->calculated_file_size=calculated_file_size;
 	return 1;
       }
+      else if(memcmp(&buffer[i+8], "braw", 4)==0)
+      {
+	reset_file_recovery(file_recovery_new);
+	file_recovery_new->extension=extension_braw;
+	if(file_recovery->blocksize < 16)
+	{
+	  file_recovery_new->min_filesize=calculated_file_size;
+	  return 1;
+	}
+	file_recovery_new->data_check=&data_check_mov;
+	file_recovery_new->file_check=&file_check_size;
+	file_recovery_new->calculated_file_size=calculated_file_size;
+	return 1;
+      }
       else
       {
         /* Check compatible brands in ftyp atom */
@@ -633,6 +652,20 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
           {
             reset_file_recovery(file_recovery_new);
             file_recovery_new->extension=extension_cr3;
+            if(file_recovery->blocksize < 16)
+            {
+              file_recovery_new->min_filesize=calculated_file_size;
+              return 1;
+            }
+            file_recovery_new->data_check=&data_check_mov;
+            file_recovery_new->file_check=&file_check_size;
+            file_recovery_new->calculated_file_size=calculated_file_size;
+            return 1;
+          }
+          else if(memcmp(&buffer[b], "braw", 4)==0)
+          {
+            reset_file_recovery(file_recovery_new);
+            file_recovery_new->extension=extension_braw;
             if(file_recovery->blocksize < 16)
             {
               file_recovery_new->min_filesize=calculated_file_size;
@@ -685,9 +718,12 @@ static int header_check_mov_aux(const unsigned char *buffer, const unsigned int 
   @ ensures (\result == 1) ==> (file_recovery_new->extension == file_hint_mov.extension ||
 				file_recovery_new->extension == extension_3g2 ||
 				file_recovery_new->extension == extension_3gp ||
+				file_recovery_new->extension == extension_avif ||
+				file_recovery_new->extension == extension_braw ||
 				file_recovery_new->extension == extension_cr3 ||
 				file_recovery_new->extension == extension_heic ||
 				file_recovery_new->extension == extension_jp2 ||
+				file_recovery_new->extension == extension_jxl ||
 				file_recovery_new->extension == extension_m4a ||
 				file_recovery_new->extension == extension_mp4);
   @ ensures (\result == 1) ==> (valid_read_string(file_recovery_new->extension));

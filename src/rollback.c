@@ -79,7 +79,9 @@ static void sanitize_dev_name(const char *dev, char *out, size_t out_sz)
 
 int safety_rollback_backup(disk_t *disk_car, const char *action_desc, char *out_journal_path, size_t path_max)
 {
-  if(disk_car == NULL || disk_car->pread == NULL || disk_car->sector_size == 0 || disk_car->disk_size == 0)
+  if(disk_car == NULL || disk_car->pread == NULL || disk_car->sector_size == 0 ||
+     disk_car->disk_size < disk_car->sector_size ||
+     (disk_car->disk_real_size > 0 && disk_car->disk_real_size < disk_car->sector_size))
   {
     log_error("[SAFETY ROLLBACK] Invalid disk structure, cannot capture snapshot.\n");
     return -1;
@@ -239,6 +241,11 @@ int safety_rollback_backup(disk_t *disk_car, const char *action_desc, char *out_
   log_info("[SAFETY ROLLBACK] To undo changes, run: testdisk-ng --undo %s\n", filename);
 
   return 0;
+}
+
+int rollback_create_snapshot(disk_t *disk_car, const char *action_desc, char *out_journal_path, size_t path_max)
+{
+  return safety_rollback_backup(disk_car, action_desc, out_journal_path, path_max);
 }
 
 int testdisk_rollback_restore(const char *undo_filename, const char *override_device, int non_interactive)

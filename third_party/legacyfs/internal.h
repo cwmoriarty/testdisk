@@ -122,5 +122,8 @@ extern const legacyfs_ops_t lfs_erofs_ops;
 extern const legacyfs_ops_t lfs_iso9660_ops;
 extern const legacyfs_ops_t lfs_ufs_ops;
 extern const legacyfs_ops_t lfs_jfs_ops;
+extern const legacyfs_ops_t lfs_xfs_ops;
+extern const legacyfs_ops_t lfs_btrfs_ops;
+extern const legacyfs_ops_t lfs_udf_ops;
 
 #endif /* LEGACYFS_INTERNAL_H */

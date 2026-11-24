@@ -39,10 +39,11 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog INFO INSTALL NEWS README.md README_dev_ph
 	win/testdisk_win.exe.manifest \
 	Android.mk jni/Android.mk \
 	tests/test_recovery_and_rollback.sh \
+	tests/test_corrupted_fuzz.sh \
 	scripts/sync-legacyfs.sh \
 	.travis.yml
 
-TESTS = tests/test_recovery_and_rollback.sh
+TESTS = tests/test_recovery_and_rollback.sh tests/test_corrupted_fuzz.sh
 
 install-data-hook:
 	$(mkinstalldirs) $(DESTDIR)$(docdir)

@@ -324,6 +324,7 @@ int is_legacyfs_browsable(const partition_t *partition)
     return 0;
   switch (partition->upart_type)
   {
+    case UP_BTRFS:
     case UP_CRAMFS:
     case UP_FREEBSD:
     case UP_ISO:
@@ -338,6 +339,11 @@ int is_legacyfs_browsable(const partition_t *partition)
     case UP_UFS2:
     case UP_UFS_LE:
     case UP_UFS2_LE:
+    case UP_XFS:
+    case UP_XFS2:
+    case UP_XFS3:
+    case UP_XFS4:
+    case UP_XFS5:
       return 1;
     default:
       return 0;

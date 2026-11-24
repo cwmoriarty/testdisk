@@ -89,6 +89,7 @@ static dir_partition_t dir_partition_init(disk_t *disk, const partition_t *parti
       if(res!=DIR_PART_OK)
         res=dir_partition_legacyfs_init(disk, partition, dir_data, verbose);
       return res;
+    case UP_BTRFS:
     case UP_CRAMFS:
     case UP_FREEBSD:
     case UP_ISO:
@@ -100,6 +101,11 @@ static dir_partition_t dir_partition_init(disk_t *disk, const partition_t *parti
     case UP_UFS2:
     case UP_UFS_LE:
     case UP_UFS2_LE:
+    case UP_XFS:
+    case UP_XFS2:
+    case UP_XFS3:
+    case UP_XFS4:
+    case UP_XFS5:
       return dir_partition_legacyfs_init(disk, partition, dir_data, verbose);
     case UP_NTFS:
       return dir_partition_ntfs_init(disk, partition, dir_data, verbose, expert);
