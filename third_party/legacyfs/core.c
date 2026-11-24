@@ -29,8 +29,8 @@ static const legacyfs_format_desc_t k_formats[] = {
     { LEGACYFS_KIND_SYSV,       "sysv",       "SysV",                "fuse-sysv",     1, 0 },
 
     { LEGACYFS_KIND_REISER4,    "reiser4",    "Reiser4",             NULL,            0, 0 },
-    { LEGACYFS_KIND_BTRFS,      "btrfs",      "Btrfs",               NULL,            0, 0 },
-    { LEGACYFS_KIND_XFS,        "xfs",        "XFS",                 NULL,            0, 0 },
+    { LEGACYFS_KIND_BTRFS,      "btrfs",      "Btrfs",               "fuse-btrfs",    1, 0 },
+    { LEGACYFS_KIND_XFS,        "xfs",        "XFS",                 "fuse-xfs",      1, 0 },
     { LEGACYFS_KIND_F2FS,       "f2fs",       "F2FS",                NULL,            0, 0 },
     { LEGACYFS_KIND_NILFS2,     "nilfs2",     "NILFS2",              NULL,            0, 0 },
     { LEGACYFS_KIND_ZFS,        "zfs",        "ZFS",                 NULL,            0, 1 },
@@ -41,7 +41,7 @@ static const legacyfs_format_desc_t k_formats[] = {
     { LEGACYFS_KIND_HPFS,       "hpfs",       "HPFS",                NULL,            0, 0 },
     { LEGACYFS_KIND_AFFS,       "affs",       "Amiga FFS",           NULL,            0, 0 },
     { LEGACYFS_KIND_HFS,        "hfs",        "Classic Mac HFS",     NULL,            0, 0 },
-    { LEGACYFS_KIND_UDF,        "udf",        "UDF",                 NULL,            0, 0 },
+    { LEGACYFS_KIND_UDF,        "udf",        "UDF",                 "fuse-udf",      1, 0 },
     { LEGACYFS_KIND_VMFS,       "vmfs",       "VMware VMFS",         NULL,            0, 1 },
     { LEGACYFS_KIND_REFS,       "refs",       "Microsoft ReFS",      NULL,            0, 0 },
     { LEGACYFS_KIND_WBFS,       "wbfs",       "Wii WBFS",            NULL,            0, 0 },
@@ -277,6 +277,9 @@ static const legacyfs_ops_t *lfs_ops_for_kind(legacyfs_kind_t kind) {
     case LEGACYFS_KIND_ISO9660:  return &lfs_iso9660_ops;
     case LEGACYFS_KIND_UFS:      return &lfs_ufs_ops;
     case LEGACYFS_KIND_JFS:      return &lfs_jfs_ops;
+    case LEGACYFS_KIND_BTRFS:    return &lfs_btrfs_ops;
+    case LEGACYFS_KIND_XFS:      return &lfs_xfs_ops;
+    case LEGACYFS_KIND_UDF:      return &lfs_udf_ops;
     default:                     return NULL;
     }
 }

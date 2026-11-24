@@ -36,6 +36,7 @@
 #include "chgtypen.h"
 #include "savehdr.h"
 #include "dirpart.h"
+#include "legacyfs_dir.h"
 #include "log.h"
 #include "io_redir.h"
 #include "tload.h"
@@ -263,6 +264,15 @@ static list_part_t *ask_structure_ncurses(disk_t *disk_car,list_part_t *list_par
 	  waddstr(stdscr,": list files, ");
 	  break;
 	default:
+	  if(is_legacyfs_browsable(pos->part))
+	  {
+	    if(has_colors())
+	      wbkgdset(stdscr,' ' | A_BOLD | COLOR_PAIR(0));
+	    waddstr(stdscr,"P");
+	    if(has_colors())
+	      wbkgdset(stdscr,' ' | COLOR_PAIR(0));
+	    waddstr(stdscr,": list files, ");
+	  }
 	  break;
       }
       if(has_colors())

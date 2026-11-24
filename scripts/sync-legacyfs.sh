@@ -3,9 +3,9 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-LEGACYFS_VERSION="0.1.0"
+LEGACYFS_VERSION="0.2.0"
 LEGACYFS_URL="https://github.com/cwmoriarty/legacyfs/releases/download/v${LEGACYFS_VERSION}/legacyfs-${LEGACYFS_VERSION}.tar.gz"
-LEGACYFS_SHA256="8be357369af32bd309122e8d4deca1da5d39e5efadbd77fa2017555a2c4be97d"
+LEGACYFS_SHA256="790aa053ef7ecdada026d436769e93c98171c6e2fd99b483452085ada0dcbb4b"
 
 TMP_WORK="$(mktemp -d /tmp/sync_legacyfs_XXXXXX)"
 trap 'rm -rf "$TMP_WORK"' EXIT
@@ -22,7 +22,7 @@ mkdir -p "$DEST_DIR"
 cp -p "$SRC_DIR/LICENSE" "$DEST_DIR/LICENSE"
 cp -p "$SRC_DIR/include/legacyfs.h" "$DEST_DIR/legacyfs.h"
 cp -p "$SRC_DIR/src/internal.h" "$DEST_DIR/internal.h"
-for f in core.c probe.c fs_reiserfs.c fs_minix_sysv.c fs_cramfs_romfs.c fs_squashfs_erofs.c fs_iso9660.c fs_ufs_jfs.c; do
+for f in core.c probe.c fs_reiserfs.c fs_minix_sysv.c fs_cramfs_romfs.c fs_squashfs_erofs.c fs_iso9660.c fs_ufs_jfs.c fs_btrfs.c fs_xfs.c fs_udf.c; do
     cp -p "$SRC_DIR/src/$f" "$DEST_DIR/$f"
 done
 

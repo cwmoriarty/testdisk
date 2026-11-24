@@ -112,14 +112,17 @@ static void display_help(void)
       "Usage: testdisk-ng [/log] [/debug] [file.dd|file.e01|device]\n"\
       "       testdisk-ng /list  [/log]   [file.dd|file.e01|device]\n" \
       "       testdisk-ng --snapshot <device> [description]\n" \
+      "       testdisk-ng --auto-snapshot [/log] [--handoff-report <path>] <device>\n" \
       "       testdisk-ng --undo <file.bin> [device] [--yes]\n" \
       "       testdisk-ng /version\n" \
       "\n" \
-      "/log                 : create a testdisk.log file\n" \
-      "/debug               : add debug information\n" \
-      "/list                : display current partitions\n" \
-      "--snapshot <device>  : capture safety rollback journal before disk modifications\n" \
-      "--undo <file>        : restore partition table from safety rollback journal\n" \
+      "/log                    : create a testdisk.log file\n" \
+      "/debug                  : add debug information\n" \
+      "/list                   : display current partitions\n" \
+      "--snapshot <device>     : capture safety rollback journal before disk modifications\n" \
+      "--auto-snapshot         : capture pre-recovery rollback journal and continue session\n" \
+      "--handoff-report <path> : record diagnostic report path in testdisk.log\n" \
+      "--undo <file>           : restore partition table from safety rollback journal\n" \
       "\n" \
       "TestDisk-NG checks and recovers lost partitions\n" \
       "It works with :\n" \
@@ -251,6 +254,8 @@ int main( int argc, char **argv )
   const char *logfile="testdisk.log";
   int log_opened=0;
   int log_errno=0;
+  int auto_snapshot=0;
+  const char *handoff_report_path=NULL;
   if(argc <= 0)
     return 1;
   /* srand needed for GPT creation (weak is ok) */
@@ -378,6 +383,20 @@ int main( int argc, char **argv )
       log_close();
       return (res == 0 ? 0 : 1);
     }
+    else if(strcmp(argv[i], "--auto-snapshot")==0 || strcmp(argv[i], "-auto-snapshot")==0 || strcmp(argv[i], "/auto-snapshot")==0)
+    {
+      auto_snapshot = 1;
+    }
+    else if(strcmp(argv[i], "--handoff-report")==0 || strcmp(argv[i], "-handoff-report")==0 || strcmp(argv[i], "/handoff-report")==0)
+    {
+      if(i + 1 >= argc)
+      {
+        display_help();
+        log_close();
+        return 1;
+      }
+      handoff_report_path = argv[++i];
+    }
     else if((strcmp(argv[i],"/help")==0) || (strcmp(argv[i],"-help")==0) || (strcmp(argv[i],"--help")==0) ||
       (strcmp(argv[i],"/h")==0) || (strcmp(argv[i],"-h")==0) ||
       (strcmp(argv[i],"/?")==0) || (strcmp(argv[i],"-?")==0))
@@ -441,6 +460,43 @@ int main( int argc, char **argv )
       }
       list_disk=insert_new_disk(list_disk,disk_car);
     }
+  }
+  if(handoff_report_path != NULL)
+  {
+    if(create_log == TD_LOG_NONE)
+      create_log = TD_LOG_APPEND;
+    if(log_opened == 0)
+      log_opened = log_open(logfile, create_log, &log_errno);
+    log_info("Montserrat handoff diagnostic report: %s\n", handoff_report_path);
+    log_flush();
+  }
+  if(auto_snapshot != 0)
+  {
+    if(list_disk == NULL)
+    {
+      printf("Warning: --auto-snapshot requested without a target device or image; continuing.\n");
+      log_warning("--auto-snapshot requested without a target device or image; continuing.\n");
+    }
+    for(element_disk = list_disk; element_disk != NULL; element_disk = element_disk->next)
+    {
+      char journal_path[256];
+      int snap_res;
+      journal_path[0] = '\0';
+      snap_res = rollback_create_snapshot(element_disk->disk, "Automated Pre-Recovery Snapshot", journal_path, sizeof(journal_path));
+      if(snap_res == 0)
+      {
+        printf("Created safety rollback journal: %s\n", journal_path);
+        log_info("Created safety rollback journal: %s\n", journal_path);
+      }
+      else
+      {
+        printf("Warning: Could not create safety rollback journal for %s (code %d); continuing.\n",
+            element_disk->disk->device != NULL ? element_disk->disk->device : "target", snap_res);
+        log_warning("Could not create safety rollback journal for %s (code %d); continuing.\n",
+            element_disk->disk->device != NULL ? element_disk->disk->device : "target", snap_res);
+      }
+    }
+    log_flush();
   }
   screen_buffer_reset();
   if(do_list!=0)

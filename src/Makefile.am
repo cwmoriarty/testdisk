@@ -214,6 +214,7 @@ file_C			= filegen.c \
 			  file_iso.c \
 			  file_it.c \
 			  file_itu.c \
+			  file_ivf.c \
 			  file_jks.c \
 			  file_jpg.c \
 			  file_jsonlz4.c \
@@ -228,6 +229,7 @@ file_C			= filegen.c \
 			  file_luks.c \
 			  file_lxo.c \
 			  file_lz.c \
+			  file_lz4.c \
 			  file_lzh.c \
 			  file_lzo.c \
 			  file_m2ts.c \
@@ -399,6 +401,7 @@ file_C			= filegen.c \
 			  file_zcode.c \
 			  file_zip.c \
 			  file_zpr.c \
+			  file_zst.c \
 			  utfsize.c
 
 file_H			= ext2.h hfsp_struct.h filegen.h file_doc.h file_jpg.h file_gz.h file_riff.h file_sp3.h file_tar.h file_tiff.h luks_struct.h ntfs_struct.h ole.h pe.h suspend.h utfsize.h xfs_struct.h

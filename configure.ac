@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.59])
-AC_INIT([testdisk-ng],[7.2-WIP],[oss@cwmoriarty.com])
+AC_INIT([testdisk-ng],[7.3.0],[oss@cwmoriarty.com])
 AC_LANG(C)
 sinclude(acx_pthread.m4)
 sinclude(mkdir.m4)

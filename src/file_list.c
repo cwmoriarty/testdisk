@@ -520,6 +520,9 @@ extern const file_hint_t file_hint_it;
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_itunes)
 extern const file_hint_t file_hint_itunes;
 #endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_ivf)
+extern const file_hint_t file_hint_ivf;
+#endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_jks)
 extern const file_hint_t file_hint_jks;
 #endif
@@ -561,6 +564,9 @@ extern const file_hint_t file_hint_lxo;
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_lz)
 extern const file_hint_t file_hint_lz;
+#endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_lz4)
+extern const file_hint_t file_hint_lz4;
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_lzh)
 extern const file_hint_t file_hint_lzh;
@@ -1078,6 +1084,9 @@ extern const file_hint_t file_hint_zip;
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_zpr)
 extern const file_hint_t file_hint_zpr;
 #endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_zst)
+extern const file_hint_t file_hint_zst;
+#endif
 
 file_enable_t array_file_enable[]=
 {
@@ -1573,6 +1582,9 @@ file_enable_t array_file_enable[]=
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_itunes)
   { .enable=0, .file_hint=&file_hint_itunes  },
 #endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_ivf)
+  { .enable=0, .file_hint=&file_hint_ivf  },
+#endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_jks)
   { .enable=0, .file_hint=&file_hint_jks  },
 #endif
@@ -1614,6 +1626,9 @@ file_enable_t array_file_enable[]=
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_lz)
   { .enable=0, .file_hint=&file_hint_lz  },
+#endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_lz4)
+  { .enable=0, .file_hint=&file_hint_lz4  },
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_lzh)
   { .enable=0, .file_hint=&file_hint_lzh  },
@@ -2130,6 +2145,9 @@ file_enable_t array_file_enable[]=
 #endif
 #if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_zpr)
   { .enable=0, .file_hint=&file_hint_zpr  },
+#endif
+#if !defined(SINGLE_FORMAT) || defined(SINGLE_FORMAT_zst)
+  { .enable=0, .file_hint=&file_hint_zst  },
 #endif
   { .enable=0, .file_hint=NULL }
 };

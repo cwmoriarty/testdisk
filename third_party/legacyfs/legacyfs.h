@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 
-#define LEGACYFS_VERSION "0.1.0"
+#define LEGACYFS_VERSION "0.2.0"
 
 /* Read callback: returns 0 on full read of `length` bytes at `offset`, or positive errno on error. */
 typedef int (*legacyfs_read_fn)(void *io_ctx, uint64_t offset, size_t length, void *buffer);

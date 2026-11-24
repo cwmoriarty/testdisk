@@ -62,6 +62,7 @@ typedef struct {
  * Returns 0 on success (journal written and flushed), negative value on error.
  * If out_journal_path is non-null, the written filename is copied there. */
 int safety_rollback_backup(disk_t *disk_car, const char *action_desc, char *out_journal_path, size_t path_max);
+int rollback_create_snapshot(disk_t *disk_car, const char *action_desc, char *out_journal_path, size_t path_max);
 
 /* Restores partition table and boot sectors from a safety rollback journal file.
  * Returns 0 on success, negative value on error. */
