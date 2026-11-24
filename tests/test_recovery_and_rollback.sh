@@ -42,6 +42,7 @@ echo "========================================================================"
 echo -n "[Test 1/5] Checking binary versions and CLI options... "
 TD_VER="$("$TESTDISK" /version)"
 echo "$TD_VER" | grep -q "TestDisk-NG" || { echo "FAILED: testdisk-ng /version"; exit 1; }
+echo "$TD_VER" | grep -q "legacyfs lib: 0.1.0" || { echo "FAILED: legacyfs lib version missing in /version"; exit 1; }
 
 PH_VER="$("$PHOTOREC" /version)"
 echo "$PH_VER" | grep -q "PhotoRec-NG" || { echo "FAILED: photorec-ng /version"; exit 1; }

@@ -160,6 +160,9 @@ AC_ARG_WITH(giconv-includes,
 AC_ARG_WITH([zlib],
     AS_HELP_STRING([--without-zlib],[disabled use of the zlib library (default is NO)]))
 
+AC_ARG_WITH([legacyfs],
+    AS_HELP_STRING([--without-legacyfs],[disabled use of the embedded legacyfs library (default is NO)]))
+
 AC_ARG_WITH([uuid],
     AS_HELP_STRING([--without-uuid],[disabled use of the uuid library]))
 
@@ -311,6 +314,8 @@ AM_CONDITIONAL(USEICON, test "$use_icon" = yes)
 # Checks for programs.
 AC_PROG_CC
 AC_PROG_CXX
+m4_ifdef([AM_PROG_AR], [AM_PROG_AR])
+AC_PROG_RANLIB
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -815,6 +820,14 @@ if test "x$have_zlib" != "xyes"; then
     AC_MSG_ERROR([zlib requested but not found])
   fi
 fi
+
+if test "x$with_legacyfs" != "xno" && test "x$have_zlib" = "xyes"; then
+  AC_DEFINE([HAVE_LIBLEGACYFS],1,[Define to 1 if embedded legacyfs library is enabled.])
+  CPPFLAGS="$CPPFLAGS -I\$(top_srcdir)/third_party/legacyfs"
+  testdisk_LDADD="../third_party/legacyfs/liblegacyfs.a $testdisk_LDADD"
+  have_legacyfs=yes
+fi
+AM_CONDITIONAL([USE_LEGACYFS], [test "x$have_legacyfs" = "xyes"])
 #
 if test "x$use_ewf" != "xno"; then
 if test "x$with_ewf" != "xno"; then
@@ -1085,6 +1098,7 @@ AC_SUBST(qphotorec_CXXFLAGS)
 AC_CONFIG_FILES([
 	Makefile
 	icons/Makefile
+	third_party/legacyfs/Makefile
 	src/Makefile
 	man/Makefile
 	man/testdisk.8 man/photorec.8 man/qphotorec.8 man/fidentify.8
