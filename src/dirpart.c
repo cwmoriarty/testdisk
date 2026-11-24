@@ -42,6 +42,7 @@
 #include "exfat_dir.h"
 #include "ext2_dir.h"
 #include "fat_dir.h"
+#include "legacyfs_dir.h"
 #include "ntfs_dir.h"
 #include "rfs_dir.h"
 #include "dirpart.h"
@@ -66,6 +67,8 @@ static dir_partition_t dir_partition_init(disk_t *disk, const partition_t *parti
     res=dir_partition_ext2_init(disk, partition, dir_data, verbose);
     if(res!=DIR_PART_OK)
       res=dir_partition_reiser_init(disk, partition, dir_data, verbose);
+    if(res!=DIR_PART_OK)
+      res=dir_partition_legacyfs_init(disk, partition, dir_data, verbose);
   }
   if(res==DIR_PART_OK)
     return DIR_PART_OK;
@@ -82,13 +85,33 @@ static dir_partition_t dir_partition_init(disk_t *disk, const partition_t *parti
     case UP_RFS:
     case UP_RFS2:
     case UP_RFS3:
-      return dir_partition_reiser_init(disk, partition, dir_data, verbose);
+      res=dir_partition_reiser_init(disk, partition, dir_data, verbose);
+      if(res!=DIR_PART_OK)
+        res=dir_partition_legacyfs_init(disk, partition, dir_data, verbose);
+      return res;
+    case UP_CRAMFS:
+    case UP_FREEBSD:
+    case UP_ISO:
+    case UP_JFS:
+    case UP_OPENBSD:
+    case UP_SUN:
+    case UP_SYSV4:
+    case UP_UFS:
+    case UP_UFS2:
+    case UP_UFS_LE:
+    case UP_UFS2_LE:
+      return dir_partition_legacyfs_init(disk, partition, dir_data, verbose);
     case UP_NTFS:
       return dir_partition_ntfs_init(disk, partition, dir_data, verbose, expert);
     case UP_EXFAT:
       return dir_partition_exfat_init(disk, partition, dir_data, verbose);
     default:
-      return res;
+      {
+        const dir_partition_t lfs_res=dir_partition_legacyfs_init(disk, partition, dir_data, verbose);
+        if(lfs_res==DIR_PART_OK)
+          return DIR_PART_OK;
+        return res;
+      }
   }
 }
 
