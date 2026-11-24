@@ -44,6 +44,7 @@
 #include "chgtype.h"
 #include "chgtypen.h"
 #include "dirpart.h"
+#include "legacyfs_dir.h"
 #include "fat.h"
 #include "ntfs.h"
 #include "adv.h"
@@ -314,6 +315,10 @@ static const char *adv_get_options_for_partition(const partition_t *partition)
   else if(is_hfs(partition) || is_hfsp(partition))
   {
     return "tscq";
+  }
+  else if(is_legacyfs_browsable(partition))
+  {
+    return "tlcq";
   }
   return "tcq";
 }
