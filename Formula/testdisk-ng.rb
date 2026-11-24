@@ -1,10 +1,10 @@
 class TestdiskNg < Formula
   desc "Partition recovery and disk repair tool (Modern TUI edition)"
-  homepage "https://github.com/cwmoriarty/testdisk"
-  url "https://github.com/cwmoriarty/testdisk/archive/refs/tags/v7.2.0-ng.tar.gz"
-  sha256 "8b74441ffb5ea7b9ee42e3f229fae8cef374b0ff85823b8e29dd683b906dabad"
+  homepage "https://github.com/cwmoriarty/TestDisk-NG"
+  url "https://github.com/cwmoriarty/TestDisk-NG/archive/refs/tags/v7.2.0-ng.tar.gz"
+  sha256 "4a1848f8feb1f6df2a498616c155274e1114a0a87cd92370fc7c49107f0c711a"
   license "GPL-2.0-or-later"
-  head "https://github.com/cwmoriarty/testdisk.git", branch: "main"
+  head "https://github.com/cwmoriarty/TestDisk-NG.git", branch: "main"
 
   depends_on "autoconf" => :build
   depends_on "automake" => :build

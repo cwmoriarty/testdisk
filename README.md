@@ -1,7 +1,7 @@
 # TestDisk-NG & PhotoRec-NG
 
-[![Build & Release](https://github.com/cwmoriarty/testdisk/actions/workflows/build.yml/badge.svg)](https://github.com/cwmoriarty/testdisk/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/cwmoriarty/testdisk?label=release)](https://github.com/cwmoriarty/testdisk/releases/latest)
+[![Build & Release](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml/badge.svg)](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml)
+[![Release](https://img.shields.io/github/v/release/cwmoriarty/testdisk?label=release)](https://github.com/cwmoriarty/TestDisk-NG/releases/latest)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL_v2%2B-blue.svg)](COPYING)
 
 **TestDisk-NG** and **PhotoRec-NG** are modern, robust terminal tools for partition recovery, filesystem repair, and signature-based file carving.
@@ -34,7 +34,7 @@ brew install cwmoriarty/tap/testdisk-ng
 
 ### Pre-Compiled Release Binaries
 
-Pre-compiled binary packages are available on the [Releases](https://github.com/cwmoriarty/testdisk/releases/latest) page:
+Pre-compiled binary packages are available on the [Releases](https://github.com/cwmoriarty/TestDisk-NG/releases/latest) page:
 
 - **macOS (Apple Silicon arm64)**: `testdisk-ng-v7.2-WIP-macos-arm64.tar.gz`
 - **macOS (Intel x86_64)**: `testdisk-ng-v7.2-WIP-macos-x86_64.tar.gz`
@@ -58,8 +58,8 @@ sudo ./bin/testdisk-ng
 #### Compilation
 
 ```bash
-git clone https://github.com/cwmoriarty/testdisk.git
-cd testdisk
+git clone https://github.com/cwmoriarty/TestDisk-NG.git
+cd TestDisk-NG
 ./autogen.sh
 ./configure --without-ewf --without-ntfs3g
 make -j$(nproc 2>/dev/null || sysctl -n hw.ncpu)
