@@ -1,7 +1,7 @@
 # TestDisk-NG & PhotoRec-NG
 
 [![Build & Release](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml/badge.svg)](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml)
-[![Release](https://img.shields.io/github/v/release/cwmoriarty/testdisk?label=release)](https://github.com/cwmoriarty/TestDisk-NG/releases/latest)
+[![Release](https://img.shields.io/github/v/release/cwmoriarty/TestDisk-NG?label=release)](https://github.com/cwmoriarty/TestDisk-NG/releases/latest)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL_v2%2B-blue.svg)](COPYING)
 
 **TestDisk-NG** and **PhotoRec-NG** are modern, robust terminal tools for partition recovery, filesystem repair, and signature-based file carving.
