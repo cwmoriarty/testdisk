@@ -1,5 +1,6 @@
 # Generated files
 *.o
+*.a
 *.in
 *.8
 *.ses

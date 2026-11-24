@@ -1,4 +1,4 @@
-SUBDIRS = icons man src
+SUBDIRS = icons man third_party/legacyfs src
 docdir ?= $(datadir)/doc/$(PACKAGE)
 
 EXTRA_DIST = AUTHORS COPYING ChangeLog INFO INSTALL NEWS README.md README_dev_photorec.txt THANKS compile.sh \
@@ -39,6 +39,7 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog INFO INSTALL NEWS README.md README_dev_ph
 	win/testdisk_win.exe.manifest \
 	Android.mk jni/Android.mk \
 	tests/test_recovery_and_rollback.sh \
+	scripts/sync-legacyfs.sh \
 	.travis.yml
 
 TESTS = tests/test_recovery_and_rollback.sh

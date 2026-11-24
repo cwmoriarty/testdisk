@@ -65,6 +65,7 @@
 #include "fnctdsk.h"
 #include "dir.h"
 #include "ext2_dir.h"
+#include "legacyfs_dir.h"
 #include "rfs_dir.h"
 #include "ntfs_dir.h"
 #include "hdcache.h"
@@ -144,8 +145,8 @@ static void display_version(void)
 #ifdef RECORD_COMPILATION_DATE
   printf("Compilation date: %s\n", get_compilation_date());
 #endif
-  printf("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, ewf lib: %s, curses lib: %s\n",
-      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_ewf_version(), td_curses_version());
+  printf("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, legacyfs lib: %s, ewf lib: %s, curses lib: %s\n",
+      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_legacyfs_version(), td_ewf_version(), td_curses_version());
 #ifdef HAVE_ICONV
   printf("iconv support: yes\n");
 #else
@@ -524,8 +525,8 @@ int main( int argc, char **argv )
 #ifdef RECORD_COMPILATION_DATE
   log_info("Compilation date: %s\n", get_compilation_date());
 #endif
-  log_info("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, ewf lib: %s, curses lib: %s\n",
-      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_ewf_version(), td_curses_version());
+  log_info("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, legacyfs lib: %s, ewf lib: %s, curses lib: %s\n",
+      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_legacyfs_version(), td_ewf_version(), td_curses_version());
 #if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
   if(geteuid()!=0)
   {
