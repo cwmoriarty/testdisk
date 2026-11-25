@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.59])
-AC_INIT([testdisk-ng],[7.3.0],[oss@cwmoriarty.com])
+AC_INIT([testdisk-ng],[7.4.0],[oss@cwmoriarty.com])
 AC_LANG(C)
 sinclude(acx_pthread.m4)
 sinclude(mkdir.m4)
@@ -162,6 +162,9 @@ AC_ARG_WITH([zlib],
 
 AC_ARG_WITH([legacyfs],
     AS_HELP_STRING([--without-legacyfs],[disabled use of the embedded legacyfs library (default is NO)]))
+
+AC_ARG_WITH([apple-explorer],
+    AS_HELP_STRING([--without-apple-explorer],[disabled use of the embedded apple-explorer library (default is NO)]))
 
 AC_ARG_WITH([uuid],
     AS_HELP_STRING([--without-uuid],[disabled use of the uuid library]))
@@ -828,6 +831,20 @@ if test "x$with_legacyfs" != "xno" && test "x$have_zlib" = "xyes"; then
   have_legacyfs=yes
 fi
 AM_CONDITIONAL([USE_LEGACYFS], [test "x$have_legacyfs" = "xyes"])
+
+APPLE_EXPLORER_CFLAGS=""
+APPLE_EXPLORER_LIBS=""
+if test "x$with_apple_explorer" != "xno"; then
+  AC_DEFINE([HAVE_LIBAPPLEEXPLORER],1,[Define to 1 if embedded apple-explorer library is enabled.])
+  APPLE_EXPLORER_CFLAGS="-I\$(top_srcdir)/third_party/apple_explorer/include"
+  APPLE_EXPLORER_LIBS="../third_party/apple_explorer/libappleexplorer.a"
+  CPPFLAGS="$CPPFLAGS $APPLE_EXPLORER_CFLAGS"
+  testdisk_LDADD="$APPLE_EXPLORER_LIBS $testdisk_LDADD"
+  have_apple_explorer=yes
+fi
+AC_SUBST(APPLE_EXPLORER_CFLAGS)
+AC_SUBST(APPLE_EXPLORER_LIBS)
+AM_CONDITIONAL([USE_APPLE_EXPLORER], [test "x$have_apple_explorer" = "xyes"])
 #
 if test "x$use_ewf" != "xno"; then
 if test "x$with_ewf" != "xno"; then
@@ -878,7 +895,7 @@ if test "x$have_ewf" != "xyes"; then
   fi
 fi
 #-Wconversion -Wmissing-noreturn -ffunction-sections -Wl,--gc-sections -Wl,--print-gc-sections
-for option in -Wdeclaration-after-statement -Wall -Wextra -MD -Wpointer-arith -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wwrite-strings -W -Wcast-align -Waggregate-return -Wbad-function-cast -Wcast-qual -Wundef -Wredundant-decls -Wsign-compare -Wnested-externs -Winline -Wdisabled-optimization -Wfloat-equal -Wmissing-format-attribute -Wmultichar -Wc++-compat -Wformat=2 -Wtrampolines -Wunreachable-code -Wvla
+for option in -Wall -Wextra -MD -Wpointer-arith -Wmissing-declarations -Wmissing-prototypes -Wstrict-prototypes -Wshadow -Wwrite-strings -W -Wcast-align -Waggregate-return -Wbad-function-cast -Wcast-qual -Wundef -Wredundant-decls -Wsign-compare -Wnested-externs -Winline -Wdisabled-optimization -Wfloat-equal -Wmissing-format-attribute -Wmultichar -Wc++-compat -Wformat=2 -Wtrampolines -Wunreachable-code -Wvla
 do
   SAVE_CFLAGS="$CFLAGS"
   CFLAGS="$CFLAGS $option"
@@ -1099,6 +1116,7 @@ AC_CONFIG_FILES([
 	Makefile
 	icons/Makefile
 	third_party/legacyfs/Makefile
+	third_party/apple_explorer/Makefile
 	src/Makefile
 	man/Makefile
 	man/testdisk.8 man/photorec.8 man/qphotorec.8 man/fidentify.8

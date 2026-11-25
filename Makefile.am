@@ -1,4 +1,4 @@
-SUBDIRS = icons man third_party/legacyfs src
+SUBDIRS = icons man third_party/legacyfs third_party/apple_explorer src
 docdir ?= $(datadir)/doc/$(PACKAGE)
 
 EXTRA_DIST = AUTHORS COPYING ChangeLog INFO INSTALL NEWS README.md README_dev_photorec.txt THANKS compile.sh \
@@ -41,6 +41,7 @@ EXTRA_DIST = AUTHORS COPYING ChangeLog INFO INSTALL NEWS README.md README_dev_ph
 	tests/test_recovery_and_rollback.sh \
 	tests/test_corrupted_fuzz.sh \
 	scripts/sync-legacyfs.sh \
+	scripts/sync-apple-explorer.sh \
 	.travis.yml
 
 TESTS = tests/test_recovery_and_rollback.sh tests/test_corrupted_fuzz.sh

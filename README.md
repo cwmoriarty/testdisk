@@ -1,32 +1,34 @@
-# TestDisk-NG & PhotoRec-NG
+# TestDisk-NG and PhotoRec-NG
 
-[![Build & Release](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml/badge.svg)](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml)
+[![Build and Release](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml/badge.svg)](https://github.com/cwmoriarty/TestDisk-NG/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/v/release/cwmoriarty/TestDisk-NG?label=release)](https://github.com/cwmoriarty/TestDisk-NG/releases/latest)
 [![License: GPL v2+](https://img.shields.io/badge/License-GPL_v2%2B-blue.svg)](COPYING)
 
-**TestDisk-NG** and **PhotoRec-NG** are modern, robust terminal tools for partition recovery, filesystem repair, and signature-based file carving.
+**TestDisk-NG** and **PhotoRec-NG** are terminal tools for partition recovery, filesystem inspection, directory extraction, and signature-based file carving.
 
-Built on the foundation created by Christophe GRENIER, this updated edition introduces a modernized text user interface, automated safety rollback journals before disk writes, live hardware and S.M.A.R.T. controller inspection, bad-sector hang protection, and pre-compiled releases for macOS and Linux.
+Built on the foundation created by Christophe GRENIER, this edition provides an updated text user interface, automated safety rollback journals before disk writes, Apple and Unix filesystem browsing via embedded `apple-explorer` and `legacyfs` libraries, S.M.A.R.T. controller inspection, bad-sector read protection, and pre-compiled releases for macOS and Linux.
 
 ---
 
-## Key Features & Improvements
+## Features and Improvements
 
-- **Subdued Modern TUI**: Clean layout with neutral borders, unified row highlighting, and live status bars that replace high-contrast legacy screens.
-- **Live Media & Hardware Inspector**: Real-time display of physical drive attributes, bus protocols (`[NVMe]`, `[USB]`, `[SATA]`, `[SD Card]`), logical and physical sector sizing (512e vs 4Kn), partition table maps, and root privilege status.
-- **Automated Safety Rollback Journal**: Before writing partition tables or boot sectors to physical media, TestDisk-NG automatically saves an atomic binary snapshot (`testdisk_undo_<disk>_<timestamp>.bin`) capturing all critical partition sectors (head MBR/GPT and tail backup GPT).
-- **One-Command Rollback (`--undo`)**: Easily revert unwanted disk modifications back to their exact previous state with CRC32 integrity verification.
-- **S.M.A.R.T. Health Diagnostics**: Real-time hardware health status verification (`Verified`, `Degraded / Failing`, or bus status) queried directly from device controllers.
-- **Read Timeout & Bad Sector Protection**: Continuous error monitoring that prevents terminal lockups during deep disk reads across failing blocks.
-- **Live Search & Device Filtering**: Filter connected drives and disk images instantly by typing keywords directly in the drive selection view.
+- **Apple Filesystem Browsing (`apple-explorer` v0.1.0)**: Browse directories and copy files directly from Classic HFS, HFS+ and HFSX (including Time Machine `Backups.backupdb` directory hard-link resolution and `com.apple.decmpfs` transparent decompression), and APFS partitions (including Fletcher-64 checkpoint ring recovery and synthetic `/Snapshots` and `/Backups` Time Machine snapshot trees) using `[P] List Files` and `[C] Copy`.
+- **Legacy and Unix Filesystem Browsing (`legacyfs` v0.2.0)**: Read-only directory listing and file extraction across Btrfs, XFS (through v5), ReiserFS, CramFS, JFS, UFS/UFS2, UDF, ISO9660, and SysV partitions without kernel drivers.
+- **Updated Terminal Interface**: Structured layout with clear borders, row highlighting, and live status bars.
+- **Media and Hardware Inspector**: Displays physical drive attributes, bus protocols (`[NVMe]`, `[USB]`, `[SATA]`, `[SD Card]`), logical and physical sector sizing (512e vs 4Kn), partition table maps, and privilege status.
+- **Automated Safety Rollback Journal**: Before writing partition tables or boot sectors to media, TestDisk-NG saves an atomic binary snapshot (`testdisk_undo_<disk>_<timestamp>.bin`) capturing critical partition sectors (head MBR/GPT and tail backup GPT).
+- **Single-Command Rollback (`--undo`)**: Revert disk modifications back to their captured sector state with CRC32 verification, alongside `--auto-snapshot` and `--handoff-report` flags for automated diagnostic handoffs.
+- **S.M.A.R.T. Health Diagnostics**: Hardware health status reporting queried from device controllers.
+- **Read Timeout and Bad Sector Protection**: Error monitoring that prevents terminal lockups during reads across failing blocks.
+- **Live Search and Device Filtering**: Filter connected drives and disk images by typing keywords in the drive selection view.
 
 ---
 
 ## Installation
 
-### Homebrew (macOS & Linux)
+### Homebrew (macOS and Linux)
 
-Install directly via the tap:
+Install via the tap:
 
 ```bash
 brew install cwmoriarty/tap/testdisk-ng
@@ -34,16 +36,16 @@ brew install cwmoriarty/tap/testdisk-ng
 
 ### Pre-Compiled Release Binaries
 
-Pre-compiled binary packages are available on the [Releases](https://github.com/cwmoriarty/TestDisk-NG/releases/latest) page:
+Pre-compiled binary archives are available on the [Releases](https://github.com/cwmoriarty/TestDisk-NG/releases/latest) page:
 
-- **macOS (Apple Silicon arm64)**: `testdisk-ng-v7.2-WIP-macos-arm64.tar.gz`
-- **macOS (Intel x86_64)**: `testdisk-ng-v7.2-WIP-macos-x86_64.tar.gz`
-- **Linux (x86_64)**: `testdisk-ng-v7.2-WIP-linux-x86_64.tar.gz`
+- **macOS (Apple Silicon arm64)**: `testdisk-ng-v7.4.0-macos-arm64.tar.gz`
+- **macOS (Intel x86_64)**: `testdisk-ng-v7.4.0-macos-x86_64.tar.gz`
+- **Linux (x86_64)**: `testdisk-ng-v7.4.0-linux-x86_64.tar.gz`
 
 Extract the archive and run the binaries directly:
 
 ```bash
-tar -xzf testdisk-ng-v7.2-WIP-macos-arm64.tar.gz
+tar -xzf testdisk-ng-v7.4.0-macos-arm64.tar.gz
 sudo ./bin/testdisk-ng
 ```
 
@@ -70,9 +72,9 @@ sudo make install
 
 ## Usage
 
-### TestDisk-NG: Partition Recovery
+### TestDisk-NG: Partition Recovery and File Extraction
 
-Start the interactive terminal interface (requires root permissions for direct raw drive access):
+Start the interactive terminal interface (requires root permissions for raw drive access):
 
 ```bash
 sudo testdisk-ng
@@ -80,10 +82,16 @@ sudo testdisk-ng
 
 #### Common Commands
 
-- **List Detected Disks & Partitions**:
+- **List Detected Disks and Partitions**:
   ```bash
   sudo testdisk-ng /list
   sudo testdisk-ng /list /dev/rdisk2
+  ```
+
+- **Non-Interactive Directory Listing and File Copy**:
+  Extract files from a supported partition (including Classic HFS, HFS+ `Backups.backupdb`, APFS snapshots, Btrfs, XFS, ReiserFS, or UDF) into the current working directory:
+  ```bash
+  testdisk-ng /log /cmd disk.img advanced,list,recursive,filecopy,quit,quit
   ```
 
 - **Enable Debug Logging**:
@@ -106,13 +114,13 @@ sudo testdisk-ng
   # Specify target device override
   sudo testdisk-ng --undo testdisk_undo_rdisk2_20261120_123000.bin /dev/rdisk2
 
-  # Non-interactive restoration (scripts & automation)
+  # Non-interactive restoration for scripts and automation
   sudo testdisk-ng --undo testdisk_undo_rdisk2_20261120_123000.bin /dev/rdisk2 --yes
   ```
 
-### PhotoRec-NG: File Carving & Recovery
+### PhotoRec-NG: File Carving and Recovery
 
-Recover lost photos, documents, and media from memory cards, USB keys, and corrupted filesystems:
+Recover lost photos, documents, archives, and media from memory cards, USB drives, and damaged filesystems:
 
 ```bash
 sudo photorec-ng
@@ -126,7 +134,7 @@ sudo photorec-ng /cmd disk.img search
 
 ### FIdentify: File Signature Checker
 
-Determine if PhotoRec-NG recognizes a specific file format header:
+Check whether PhotoRec-NG recognizes a specific file format header:
 
 ```bash
 fidentify sample.jpg
@@ -134,41 +142,42 @@ fidentify sample.jpg
 
 ---
 
-## Supported Filesystems & Formats
+## Supported Filesystems and Formats
 
-### Filesystems (Partition Detection & Repair)
-- **DOS/Windows**: FAT12, FAT16, FAT32, exFAT, NTFS
-- **Linux**: ext2, ext3, ext4, btrfs, GFS2, JFS, LUKS, LVM/LVM2, Linux Raid (MD), Linux Swap, XFS
-- **Apple**: HFS, HFS+, APFS
-- **Unix & BSD**: BeFS, BSD disklabel (FreeBSD/OpenBSD/NetBSD), Netware NSS, ReiserFS (3.5, 3.6, 4), Sun Solaris i386 disklabel, Sun ZFS, UFS/UFS2
-- **Gaming & Embedded**: CramFS, Wii WBFS, Xbox FATX
+### Filesystems (Partition Detection, Repair, and Directory Browsing)
+- **Apple**: APFS (checkpoint ring, `/Snapshots`, Time Machine `/Backups`), HFS+ and HFSX (Catalog/Extents/Attributes B-trees, Time Machine `Backups.backupdb`, `decmpfs`), Classic HFS
+- **DOS/Windows**: FAT12, FAT16, FAT32, exFAT, NTFS, ReFS
+- **Linux**: ext2, ext3, ext4, Btrfs, CramFS, F2FS, GFS2, JFS, LUKS, LVM/LVM2, Linux RAID (MD), Linux Swap, XFS
+- **Unix, BSD, and Optical**: BeFS, BSD disklabel (FreeBSD/OpenBSD/NetBSD), ISO9660, Netware NSS, ReiserFS (3.5, 3.6, 4), Sun Solaris disklabel, Sun ZFS, SysV, UDF, UFS/UFS2
+- **Gaming and Virtualization**: VMware VMFS, Wii WBFS, Xbox FATX
 
 ### File Carving (PhotoRec Signature Recovery)
-Recovers 480+ file extensions across documents (DOC/DOCX, PDF, RTF), archives (ZIP, 7Z, TAR, BZ2, GZ), media (JPEG, PNG, GIF, TIFF, RAW, MP3, MP4, MOV, MKV, AVI), databases (SQL, DB, SQLite), and executable/binary files.
+Recovers 480+ file extensions across documents (DOC/DOCX, PDF, RTF), archives and compressed streams (ZIP, 7Z, TAR, BZ2, GZ, ZSTD, LZ4), media and camera RAW (JPEG, PNG, AVIF, GIF, TIFF, CR3, BRAW, MP3, MP4, MOV, MKV, IVF, AVI), databases (SQL, DB, SQLite), and binary files.
 
 ---
 
 ## Automated Tests
 
-Run the built-in test suite to verify partition recovery, signature matching, and rollback integrity against synthetic disk images:
+Run the built-in test and sanitizer fuzz suites to verify partition recovery, Apple and Unix directory extraction, signature matching, rollback restoration, and corrupted-image handling:
 
 ```bash
 make check
 ```
 
-Or execute the integration test script directly:
+Or execute the test scripts directly:
 
 ```bash
 ./tests/test_recovery_and_rollback.sh
+./tests/test_corrupted_fuzz.sh
 ```
 
 ---
 
-## Authors & Attribution
+## Authors and Attribution
 
 - **Original Author**: Christophe GRENIER ([grenier@cgsecurity.org](mailto:grenier@cgsecurity.org))  
   Official Website: [https://www.cgsecurity.org](https://www.cgsecurity.org)
-- **Modernization & Maintenance**: Christopher W Moriarty ([oss@cwmoriarty.com](mailto:oss@cwmoriarty.com))  
+- **Maintenance**: Christopher W Moriarty ([oss@cwmoriarty.com](mailto:oss@cwmoriarty.com))  
   Release Date: November 2026
 
 Both TestDisk-NG and PhotoRec-NG are open source software released under the **GNU General Public License v2 or later**.

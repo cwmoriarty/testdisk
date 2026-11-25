@@ -75,7 +75,7 @@ jobs:
 
       - name: Package Release Archive
         run: |
-          VERSION_TAG="v7.3.0"
+          VERSION_TAG="v7.4.0"
           if [[ "${GITHUB_REF:-}" == refs/tags/v* ]]; then
             VERSION_TAG="${GITHUB_REF#refs/tags/}"
           fi

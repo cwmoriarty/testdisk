@@ -10,6 +10,7 @@ config/
 config.*
 Makefile
 .deps/
+.dirstamp
 
 /autom4te.cache
 /autoscan.log
