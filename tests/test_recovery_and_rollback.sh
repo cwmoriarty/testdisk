@@ -41,11 +41,12 @@ echo " FIdentify binary:  $FIDENTIFY"
 echo "========================================================================"
 
 # Test 1: Verify version strings and CLI flags
-echo -n "[Test 1/7] Checking binary versions and CLI options... "
+echo -n "[Test 1/8] Checking binary versions and CLI options... "
 TD_VER="$("$TESTDISK" /version)"
 echo "$TD_VER" | grep -q "TestDisk-NG" || { echo "FAILED: testdisk-ng /version"; exit 1; }
-echo "$TD_VER" | grep -q "Version: 7.3.0" || { echo "FAILED: expected Version: 7.3.0 in /version"; exit 1; }
+echo "$TD_VER" | grep -q "Version: 7.4.0" || { echo "FAILED: expected Version: 7.4.0 in /version"; exit 1; }
 echo "$TD_VER" | grep -q "legacyfs lib: 0.2.0" || { echo "FAILED: legacyfs lib 0.2.0 missing in /version"; exit 1; }
+echo "$TD_VER" | grep -q "apple-explorer lib: 0.1.0" || { echo "FAILED: apple-explorer lib 0.1.0 missing in /version"; exit 1; }
 
 PH_VER="$("$PHOTOREC" /version)"
 echo "$PH_VER" | grep -q "PhotoRec-NG" || { echo "FAILED: photorec-ng /version"; exit 1; }
@@ -58,7 +59,7 @@ echo "$HELP_OUT" | grep -q -- "--handoff-report" || { echo "FAILED: --handoff-re
 echo "PASSED"
 
 # Test 2: Create synthetic disk image with valid MBR partition table
-echo -n "[Test 2/7] Creating synthetic disk image and verifying geometry parsing... "
+echo -n "[Test 2/8] Creating synthetic disk image and verifying geometry parsing... "
 DISK_IMG="$TMP_DIR/synthetic_disk.img"
 dd if=/dev/zero of="$DISK_IMG" bs=1048576 count=10 status=none
 
@@ -82,7 +83,7 @@ echo "$LIST_OUT" | grep -q "Linux" || { echo "FAILED: Linux partition not detect
 echo "PASSED"
 
 # Test 3: Safety Rollback Journal Creation
-echo -n "[Test 3/7] Testing safety rollback journal snapshot capture... "
+echo -n "[Test 3/8] Testing safety rollback journal snapshot capture... "
 cd "$TMP_DIR"
 SNAP_OUT="$("$TESTDISK" --snapshot "$DISK_IMG" "Automated Pre-test Backup")"
 echo "$SNAP_OUT" | grep -q "Created safety rollback journal:" || { echo "FAILED: snapshot creation output"; exit 1; }
@@ -101,7 +102,7 @@ EOF
 echo "PASSED ($JOURNAL_FILE)"
 
 # Test 4: Simulate partition destruction and restore via --undo
-echo -n "[Test 4/7] Corrupting partition sectors and verifying --undo restoration... "
+echo -n "[Test 4/8] Corrupting partition sectors and verifying --undo restoration... "
 dd if="$DISK_IMG" of="$TMP_DIR/orig_head.bin" bs=512 count=64 status=none
 dd if=/dev/zero of="$DISK_IMG" bs=512 count=64 conv=notrunc status=none
 
@@ -129,7 +130,7 @@ echo "$VERIFIED_LIST" | grep -q "Linux" || { echo "FAILED: Linux partition not f
 echo "PASSED (100% byte-for-byte sector restoration)"
 
 # Test 5: One-Click Recovery Handoff Flags (--auto-snapshot and --handoff-report)
-echo -n "[Test 5/7] Testing --auto-snapshot and --handoff-report handoff flow... "
+echo -n "[Test 5/8] Testing --auto-snapshot and --handoff-report handoff flow... "
 HANDOFF_DIR="$TMP_DIR/handoff_test"
 mkdir -p "$HANDOFF_DIR"
 HANDOFF_JSON="$HANDOFF_DIR/montserrat_report.json"
@@ -154,7 +155,7 @@ echo "$TINY_OUT" | grep -qi "Warning:" || { echo "FAILED: expected warning on ti
 echo "PASSED"
 
 # Test 6: PhotoRec FIdentify Signature Verification (including zst, lz4, ivf, cr3, avif, braw)
-echo -n "[Test 6/7] Testing file signature identification with FIdentify... "
+echo -n "[Test 6/8] Testing file signature identification with FIdentify... "
 SAMPLE_DIR="$TMP_DIR/samples"
 mkdir -p "$SAMPLE_DIR"
 
@@ -269,7 +270,7 @@ echo "PASSED"
 
 # Test 7: Multi-filesystem directory listing and file extraction via legacyfs v0.2.0
 # (ReiserFS v3.6, CramFS, XFS v5, Btrfs, and UDF)
-echo -n "[Test 7/7] Testing legacyfs v0.2.0 extraction (ReiserFS, CramFS, XFS v5, Btrfs, UDF)... "
+echo -n "[Test 7/8] Testing legacyfs v0.2.0 extraction (ReiserFS, CramFS, XFS v5, Btrfs, UDF)... "
 RFS_IMG="$TMP_DIR/reiser_disk.img"
 CRAM_IMG="$TMP_DIR/cram_disk.img"
 XFS_IMG="$TMP_DIR/xfs_disk.img"
@@ -584,7 +585,395 @@ mkdir -p "$UDF_OUT_DIR"
 grep -q "^udf-archival-recovered-payload$" "$UDF_OUT_DIR/video.txt" || { echo "FAILED: UDF content mismatch"; exit 1; }
 echo "PASSED"
 
+# Test 8: Apple filesystem directory listing and extraction via apple-explorer v0.1.0
+# (Classic HFS, HFS+ with Backups.backupdb hard links + decmpfs, APFS checkpoint ring + /Backups timeline)
+echo -n "[Test 8/8] Testing apple-explorer v0.1.0 extraction (Classic HFS, HFS+ Backups.backupdb, APFS snapshots)... "
+HFS_IMG="$TMP_DIR/classic_hfs_disk.img"
+HFSP_TM_IMG="$TMP_DIR/hfsp_tm_disk.img"
+APFS_SNAP_IMG="$TMP_DIR/apfs_snap_disk.img"
+
+python3 - <<EOF
+import binascii, struct
+
+PART_LBA = 2048
+PART_OFF = PART_LBA * 512
+
+def make_mbr_apple_image(part_bytes, part_type=0xAF):
+    secs = (len(part_bytes) + 511) // 512
+    disk = bytearray(PART_OFF + secs * 512)
+    disk[446:462] = struct.pack("<BBBBBBBBII", 0x80, 0, 1, 0, part_type, 0xFE, 0xFF, 0xFF, PART_LBA, secs)
+    disk[510:512] = b"\x55\xAA"
+    disk[PART_OFF:PART_OFF + len(part_bytes)] = part_bytes
+    return disk
+
+def make_gpt_apfs_image(part_bytes):
+    part_secs = (len(part_bytes) + 511) // 512
+    start_lba = 64
+    end_lba = start_lba + part_secs - 1
+    total_lba = end_lba + 64
+    disk = bytearray(total_lba * 512)
+    # Protective MBR
+    struct.pack_into("<BBBBBBBBII", disk, 446, 0x00, 0, 2, 0, 0xEE, 0xFE, 0xFF, 0xFF, 1, total_lba - 1)
+    disk[510:512] = b"\x55\xAA"
+
+    # Partition entry 0: Apple APFS GUID 7C3457EF-0000-11AA-AA11-00306543ECAC
+    entries = bytearray(128 * 128)
+    apfs_guid = struct.pack("<IHH8s", 0x7C3457EF, 0x0000, 0x11AA, bytes([0xAA, 0x11, 0x00, 0x30, 0x65, 0x43, 0xEC, 0xAC]))
+    uniq_guid = bytes(range(1, 17))
+    entries[0:16] = apfs_guid
+    entries[16:32] = uniq_guid
+    struct.pack_into("<QQQ", entries, 32, start_lba, end_lba, 0)
+    entries[56:56 + 20] = "APFSBackup".encode("utf-16-le")
+    entries_crc = binascii.crc32(entries) & 0xFFFFFFFF
+
+    # Primary GPT header at LBA 1 + entries at LBA 2..33
+    disk[2 * 512:34 * 512] = entries
+    hdr = bytearray(92)
+    hdr[0:8] = b"EFI PART"
+    struct.pack_into("<IIIIQQQQ16sQIII", hdr, 8,
+        0x00010000, 92, 0, 0,
+        1, total_lba - 1, 34, total_lba - 34,
+        bytes(range(17, 33)), 2, 128, 128, entries_crc)
+    struct.pack_into("<I", hdr, 16, binascii.crc32(hdr) & 0xFFFFFFFF)
+    disk[1 * 512:1 * 512 + 92] = hdr
+
+    # Backup GPT entries + Backup GPT header at total_lba - 1
+    alt_table_lba = total_lba - 33
+    disk[alt_table_lba * 512:(alt_table_lba + 32) * 512] = entries
+    bhdr = bytearray(92)
+    bhdr[0:8] = b"EFI PART"
+    struct.pack_into("<IIIIQQQQ16sQIII", bhdr, 8,
+        0x00010000, 92, 0, 0,
+        total_lba - 1, 1, 34, total_lba - 34,
+        bytes(range(17, 33)), alt_table_lba, 128, 128, entries_crc)
+    struct.pack_into("<I", bhdr, 16, binascii.crc32(bhdr) & 0xFFFFFFFF)
+    disk[(total_lba - 1) * 512:(total_lba - 1) * 512 + 92] = bhdr
+
+    disk[start_lba * 512:start_lba * 512 + len(part_bytes)] = part_bytes
+    return disk
+
+# 1. Classic HFS ('BD') partition with /ReadMe.txt
+hfs = bytearray(65536)
+mdb = 1024
+struct.pack_into(">H", hfs, mdb + 0, 0x4244)
+struct.pack_into(">HI", hfs, mdb + 18, 64, 512)
+struct.pack_into(">H", hfs, mdb + 28, 4)
+struct.pack_into(">H", hfs, mdb + 34, 40)
+hfs[mdb + 36] = 9
+hfs[mdb + 37:mdb + 46] = b"RetroMac9"
+struct.pack_into(">IHH", hfs, mdb + 146, 1024, 0, 2)
+
+n0 = 2048
+hfs[n0 + 8] = 1
+struct.pack_into(">H", hfs, n0 + 10, 1)
+struct.pack_into(">I", hfs, n0 + 24, 1)
+struct.pack_into(">H", hfs, n0 + 32, 512)
+struct.pack_into(">H", hfs, n0 + 510, 14)
+
+n1 = 2560
+hfs[n1 + 8] = 0xFF
+struct.pack_into(">H", hfs, n1 + 10, 2)
+r0 = 14
+hfs[n1 + r0] = 15
+struct.pack_into(">I", hfs, n1 + r0 + 2, 1)
+hfs[n1 + r0 + 6] = 9
+hfs[n1 + r0 + 7:n1 + r0 + 16] = b"RetroMac9"
+d0 = r0 + 16
+hfs[n1 + d0] = 1
+struct.pack_into(">I", hfs, n1 + d0 + 6, 2)
+
+hfs_msg = b"classic-hfs-recovered-readme\n"
+r1 = 110
+hfs[n1 + r1] = 16
+struct.pack_into(">I", hfs, n1 + r1 + 2, 2)
+hfs[n1 + r1 + 6] = 10
+hfs[n1 + r1 + 7:n1 + r1 + 17] = b"ReadMe.txt"
+d1 = r1 + 18
+hfs[n1 + d1] = 2
+struct.pack_into(">I", hfs, n1 + d1 + 20, 16)
+struct.pack_into(">I", hfs, n1 + d1 + 26, len(hfs_msg))
+struct.pack_into(">HH", hfs, n1 + d1 + 74, 2, 1)
+struct.pack_into(">HH", hfs, n1 + 508, r1, r0)
+hfs[2048 + 2 * 512:2048 + 2 * 512 + len(hfs_msg)] = hfs_msg
+# Mirror MDB to backup offset (len - 1024)
+hfs[len(hfs) - 1024:len(hfs) - 512] = hfs[mdb:mdb + 512]
+
+with open("$HFS_IMG", "wb") as f:
+    f.write(make_mbr_apple_image(hfs, 0xAF))
+
+# 2. HFS+ ('H+') partition with Backups.backupdb directory hard links + com.apple.decmpfs
+bsz = 4096
+hfsp = bytearray(16 * bsz)
+vh = 1024
+struct.pack_into(">HH", hfsp, vh + 0, 0x482B, 4)
+struct.pack_into(">III", hfsp, vh + 40, bsz, len(hfsp) // bsz, 8)
+# Catalog file at blocks 2..3
+struct.pack_into(">Q", hfsp, vh + 272, 2 * bsz)
+struct.pack_into(">III", hfsp, vh + 272 + 12, 2, 2, 2)
+# Attributes file at blocks 4..5
+struct.pack_into(">Q", hfsp, vh + 352, 2 * bsz)
+struct.pack_into(">III", hfsp, vh + 352 + 12, 2, 4, 2)
+
+cn0 = 2 * bsz
+hfsp[cn0 + 8] = 1
+struct.pack_into(">H", hfsp, cn0 + 10, 1)
+struct.pack_into(">I", hfsp, cn0 + 24, 1)
+struct.pack_into(">H", hfsp, cn0 + 32, bsz)
+struct.pack_into(">H", hfsp, cn0 + bsz - 2, 14)
+
+cn1 = 3 * bsz
+hfsp[cn1 + 8] = 0xFF
+rec_offs = []
+cur = 14
+
+def add_hfsp_key(node, off, parent_id, u16_units):
+    klen = 6 + 2 * len(u16_units)
+    struct.pack_into(">HIH", node, off, klen, parent_id, len(u16_units))
+    for idx, ch in enumerate(u16_units):
+        struct.pack_into(">H", node, off + 8 + idx * 2, ch)
+    return off + 2 + klen
+
+def add_folder(parent_id, u16_units, cnid):
+    global cur
+    rec_offs.append(cur)
+    cur = add_hfsp_key( hfsp, cn1 + cur, parent_id, u16_units ) - cn1
+    struct.pack_into(">H", hfsp, cn1 + cur, 1)
+    struct.pack_into(">I", hfsp, cn1 + cur + 8, cnid)
+    cur += 88
+
+add_folder(1, [ord(c) for c in "TimeMachineHD"], 2)
+pdd_units = [0, 0, 0, 0] + [ord(c) for c in "HFS+ Private Directory Data\r"]
+add_folder(2, pdd_units, 20)
+add_folder(2, [ord(c) for c in "Backups.backupdb"], 30)
+add_folder(30, [ord(c) for c in "MacBookPro"], 31)
+add_folder(31, [ord(c) for c in "2026-11-24-090000"], 32)
+
+# Directory hard link stub Documents (parent 32, CNID 33 -> special.iNodeNum = 777, 'fldr'/'hlnk')
+rec_offs.append(cur)
+cur = add_hfsp_key(hfsp, cn1 + cur, 32, [ord(c) for c in "Documents"]) - cn1
+struct.pack_into(">H", hfsp, cn1 + cur, 2)
+struct.pack_into(">I", hfsp, cn1 + cur + 8, 33)
+struct.pack_into(">HIII", hfsp, cn1 + cur + 42, 0o100444, 777, 0x666C6472, 0x686C6E6B)
+cur += 248
+
+# Target shared directory dir_777 inside Private Directory Data (parent 20, CNID 50)
+add_folder(20, [ord(c) for c in "dir_777"], 50)
+
+# Compressed file budget.txt inside dir_777 (parent 50, CNID 51, UF_COMPRESSED)
+rec_offs.append(cur)
+cur = add_hfsp_key(hfsp, cn1 + cur, 50, [ord(c) for c in "budget.txt"]) - cn1
+struct.pack_into(">H", hfsp, cn1 + cur, 2)
+struct.pack_into(">I", hfsp, cn1 + cur + 8, 51)
+hfsp[cn1 + cur + 41] = 0x20
+struct.pack_into(">H", hfsp, cn1 + cur + 42, 0o100644)
+cur += 248
+
+struct.pack_into(">H", hfsp, cn1 + 10, len(rec_offs))
+for idx, ro in enumerate(rec_offs):
+    struct.pack_into(">H", hfsp, cn1 + bsz - 2 * (idx + 1), ro)
+
+an0 = 4 * bsz
+hfsp[an0 + 8] = 1
+struct.pack_into(">H", hfsp, an0 + 10, 1)
+struct.pack_into(">I", hfsp, an0 + 24, 1)
+struct.pack_into(">H", hfsp, an0 + 32, bsz)
+struct.pack_into(">H", hfsp, an0 + bsz - 2, 14)
+
+an1 = 5 * bsz
+hfsp[an1 + 8] = 0xFF
+struct.pack_into(">H", hfsp, an1 + 10, 1)
+aoff = 14
+attr_name = "com.apple.decmpfs"
+aklen = 12 + 2 * len(attr_name)
+struct.pack_into(">HHIIH", hfsp, an1 + aoff, aklen, 0, 51, 0, len(attr_name))
+for idx, ch in enumerate(attr_name):
+    struct.pack_into(">H", hfsp, an1 + aoff + 14 + idx * 2, ord(ch))
+budget_msg = b"hfsp-timemachine-recovered-budget\n"
+aval = an1 + aoff + 2 + aklen
+struct.pack_into(">IIII", hfsp, aval + 0, 0x10, 0, 0, 16 + 1 + len(budget_msg))
+struct.pack_into("<IIQ", hfsp, aval + 16, 0x636D7066, 3, len(budget_msg))
+hfsp[aval + 32] = 0xFF
+hfsp[aval + 33:aval + 33 + len(budget_msg)] = budget_msg
+struct.pack_into(">H", hfsp, an1 + bsz - 2, aoff)
+hfsp[len(hfsp) - 1024:len(hfsp) - 512] = hfsp[vh:vh + 512]
+
+with open("$HFSP_TM_IMG", "wb") as f:
+    f.write(make_mbr_apple_image(hfsp, 0xAF))
+
+# 3. APFS ('NXSB' + 'APSB') in GPT with Fletcher-64 checkpoint ring + /Backups snapshot timeline
+def apfs_fletcher64(blk):
+    mod = 0xFFFFFFFF
+    s1 = 0
+    s2 = 0
+    for off in range(8, len(blk), 4):
+        w = struct.unpack_from("<I", blk, off)[0]
+        s1 = (s1 + w) % mod
+        s2 = (s2 + s1) % mod
+    c1 = mod - ((s1 + s2) % mod)
+    c2 = mod - ((s1 + c1) % mod)
+    return (c2 << 32) | c1
+
+def seal_apfs(buf, blk_idx, oid, xid, otype, osub=0):
+    base = blk_idx * 4096
+    struct.pack_into("<QQII", buf, base + 8, oid, xid, otype, osub)
+    ck = apfs_fletcher64(buf[base:base + 4096])
+    struct.pack_into("<Q", buf, base + 0, ck)
+
+apfs_blocks = 16
+apfs = bytearray(apfs_blocks * 4096)
+
+# Block 0: older NXSB (xid=15) pointing to checkpoint descriptor ring at blocks 12..13 (len=2)
+# Block 12: latest valid NXSB (xid=20)
+# Block 13: torn/uncommitted NXSB (xid=25 with invalid Fletcher-64 checksum, must be skipped)
+for bidx, xid, corrupt in [(0, 15, False), (12, 20, False), (13, 25, True)]:
+    b = bidx * 4096
+    struct.pack_into("<IIQ", apfs, b + 32, 0x4253584E, 4096, apfs_blocks)
+    struct.pack_into("<IIQQ", apfs, b + 104, 2, 0, 12, 14)  # xp_desc_blocks=2, xp_desc_base=12
+    struct.pack_into("<Q", apfs, b + 160, 1 if xid == 20 else 0)  # only xid=20 points to valid container omap=1
+    struct.pack_into("<Q", apfs, b + 184, 100)
+    seal_apfs(apfs, bidx, 1, xid, 0x80000001)
+    if corrupt:
+        apfs[b + 0] ^= 0xFF
+
+# Block 1: Container OMAP -> tree at block 2
+struct.pack_into("<Q", apfs, 1 * 4096 + 48, 2)
+seal_apfs(apfs, 1, 1, 20, 0x0000000B)
+
+# Block 2: Container OMAP B-tree: (oid=100, xid=20) -> paddr=3
+b2 = 2 * 4096
+struct.pack_into("<HHIHH", apfs, b2 + 32, 0x0007, 0, 1, 0, 64)
+struct.pack_into("<HH", apfs, b2 + 56, 0, 16)
+struct.pack_into("<QQ", apfs, b2 + 120, 100, 20)
+struct.pack_into("<Q", apfs, b2 + (4056 - 16) + 8, 3)
+seal_apfs(apfs, 2, 2, 20, 0x40000002, 0x0000000B)
+
+# Block 3 (Live APSB xid=20) and Block 9 (Snapshot APSB xid=10)
+for bidx, xid, is_snap in [(3, 20, False), (9, 10, True)]:
+    b = bidx * 4096
+    struct.pack_into("<I", apfs, b + 32, 0x42535041)
+    struct.pack_into("<Q", apfs, b + 56, 1)
+    struct.pack_into("<Q", apfs, b + 88, 12)
+    struct.pack_into("<QQ", apfs, b + 128, 4, 200)
+    if not is_snap:
+        struct.pack_into("<Q", apfs, b + 152, 8)
+        struct.pack_into("<Q", apfs, b + 216, 1)
+    struct.pack_into("<Q", apfs, b + 264, 1)
+    apfs[b + 704:b + 716] = b"TMBackupAPFS"
+    struct.pack_into("<H", apfs, b + 964, 0x0080)
+    seal_apfs(apfs, bidx, 100, xid, 0x4000000D)
+
+# Block 4: Volume OMAP -> tree at block 5
+struct.pack_into("<Q", apfs, 4 * 4096 + 48, 5)
+seal_apfs(apfs, 4, 4, 20, 0x0000000B)
+
+# Block 5: Volume OMAP B-tree: (200, 10)->6 and (200, 20)->7
+b5 = 5 * 4096
+struct.pack_into("<HHIHH", apfs, b5 + 32, 0x0007, 0, 2, 0, 64)
+struct.pack_into("<HHHH", apfs, b5 + 56, 0, 16, 16, 32)
+struct.pack_into("<QQQQ", apfs, b5 + 120, 200, 10, 200, 20)
+struct.pack_into("<Q", apfs, b5 + (4056 - 16) + 8, 6)
+struct.pack_into("<Q", apfs, b5 + (4056 - 32) + 8, 7)
+seal_apfs(apfs, 5, 5, 20, 0x40000002, 0x0000000B)
+
+class LeafBuilder:
+    def __init__(self, blk_idx):
+        self.base = blk_idx * 4096
+        struct.pack_into("<HHIHH", apfs, self.base + 32, 0x0003, 0, 0, 0, 256)
+        self.count = 0
+        self.kcur = 0
+        self.vcur = 0
+    def add(self, k, v):
+        kbase = self.base + 56 + 256
+        vend = self.base + 4056
+        self.vcur += len(v)
+        apfs[kbase + self.kcur:kbase + self.kcur + len(k)] = k
+        apfs[vend - self.vcur:vend - self.vcur + len(v)] = v
+        struct.pack_into("<HHHH", apfs, self.base + 56 + self.count * 8, self.kcur, len(k), self.vcur, len(v))
+        self.kcur += len(k)
+        self.count += 1
+        struct.pack_into("<I", apfs, self.base + 36, self.count)
+
+snap_txt = b"apfs-snapshot-v1-historical-note\n"
+live_txt = b"apfs-live-v2-current-note\n"
+apfs[10 * 4096:10 * 4096 + len(snap_txt)] = snap_txt
+apfs[11 * 4096:11 * 4096 + len(live_txt)] = live_txt
+
+for blk_idx, xid, dblk, payload in [(6, 10, 10, snap_txt), (7, 20, 11, live_txt)]:
+    lb = LeafBuilder(blk_idx)
+    iv = bytearray(92)
+    struct.pack_into("<QQ", iv, 0, 1, 2)
+    struct.pack_into("<I", iv, 56, 1)
+    struct.pack_into("<H", iv, 80, 0o040755)
+    lb.add(struct.pack("<Q", (3 << 60) | 2), iv)
+
+    dk = struct.pack("<QI", (9 << 60) | 2, 9) + b"note.txt\x00"
+    dv = bytearray(18)
+    struct.pack_into("<Q", dv, 0, 16)
+    struct.pack_into("<H", dv, 16, 8)
+    lb.add(dk, dv)
+
+    fiv = bytearray(140)
+    struct.pack_into("<QQ", fiv, 0, 2, 16)
+    struct.pack_into("<I", fiv, 56, 1)
+    struct.pack_into("<H", fiv, 80, 0o100644)
+    struct.pack_into("<HHBBHQQ", fiv, 92, 1, 40, 8, 0, 40, len(payload), 4096)
+    lb.add(struct.pack("<Q", (3 << 60) | 16), fiv)
+
+    lb.add(struct.pack("<QQ", (8 << 60) | 16, 0), struct.pack("<QQQ", 4096, dblk, 0))
+    seal_apfs(apfs, blk_idx, 200, xid, 0x00000002, 0x0000000E)
+
+# Block 8: Snapshot metadata B-tree
+sllb = LeafBuilder(8)
+sname = b"com.apple.TimeMachine.2026-11-24-103000.backup\x00"
+sv = bytearray(50 + len(sname))
+struct.pack_into("<QQ", sv, 8, 9, 1732450000 * 1000000000)
+struct.pack_into("<H", sv, 48, len(sname))
+sv[50:50 + len(sname)] = sname
+sllb.add(struct.pack("<Q", (1 << 60) | 10), sv)
+seal_apfs(apfs, 8, 8, 20, 0x00000002, 0x00000010)
+
+with open("$APFS_SNAP_IMG", "wb") as f:
+    f.write(make_gpt_apfs_image(apfs))
+EOF
+
+HFS_OUT_DIR="$TMP_DIR/hfs_extract"
+mkdir -p "$HFS_OUT_DIR"
+(cd "$HFS_OUT_DIR" && TERM=xterm "$TESTDISK" /log /cmd "$HFS_IMG" advanced,list,recursive,filecopy,quit,quit >/dev/null 2>&1)
+[ -f "$HFS_OUT_DIR/ReadMe.txt" ] || { echo "FAILED: Classic HFS /ReadMe.txt not extracted"; cat "$HFS_OUT_DIR/testdisk.log" || true; exit 1; }
+grep -q "^classic-hfs-recovered-readme$" "$HFS_OUT_DIR/ReadMe.txt" || { echo "FAILED: Classic HFS content mismatch"; exit 1; }
+
+HFSP_OUT_DIR="$TMP_DIR/hfsp_tm_extract"
+mkdir -p "$HFSP_OUT_DIR"
+(cd "$HFSP_OUT_DIR" && TERM=xterm "$TESTDISK" /log /cmd "$HFSP_TM_IMG" advanced,list,recursive,filecopy,quit,quit >/dev/null 2>&1)
+HFSP_BUDGET="$HFSP_OUT_DIR/Backups.backupdb/MacBookPro/2026-11-24-090000/Documents/budget.txt"
+[ -f "$HFSP_BUDGET" ] || { echo "FAILED: HFS+ Backups.backupdb hard-linked file not extracted"; cat "$HFSP_OUT_DIR/testdisk.log" || true; exit 1; }
+grep -q "^hfsp-timemachine-recovered-budget$" "$HFSP_BUDGET" || { echo "FAILED: HFS+ Backups.backupdb decmpfs content mismatch"; exit 1; }
+
+APFS_OUT_DIR="$TMP_DIR/apfs_snap_extract"
+mkdir -p "$APFS_OUT_DIR"
+(cd "$APFS_OUT_DIR" && TERM=xterm "$TESTDISK" /log /cmd "$APFS_SNAP_IMG" advanced,list,recursive,filecopy,quit,quit >/dev/null 2>&1)
+[ -f "$APFS_OUT_DIR/note.txt" ] || { echo "FAILED: APFS live /note.txt not extracted"; cat "$APFS_OUT_DIR/testdisk.log" || true; exit 1; }
+grep -q "^apfs-live-v2-current-note$" "$APFS_OUT_DIR/note.txt" || { echo "FAILED: APFS live /note.txt content mismatch"; exit 1; }
+APFS_HIST="$APFS_OUT_DIR/Backups/2026-11-24-103000/note.txt"
+[ -f "$APFS_HIST" ] || { echo "FAILED: APFS /Backups snapshot /note.txt not extracted"; cat "$APFS_OUT_DIR/testdisk.log" || true; exit 1; }
+grep -q "^apfs-snapshot-v1-historical-note$" "$APFS_HIST" || { echo "FAILED: APFS snapshot content mismatch"; exit 1; }
+
+# Real macOS hdiutil GPT + APFS interoperability verification (gracefully skipped on Linux)
+if [ "$(uname -s)" = "Darwin" ] && command -v hdiutil >/dev/null 2>&1; then
+  HDI_SRC="$TMP_DIR/hdi_src"
+  HDI_DMG="$TMP_DIR/real_macos_apfs.dmg"
+  HDI_OUT="$TMP_DIR/hdi_extract"
+  mkdir -p "$HDI_SRC/sub" "$HDI_OUT"
+  printf 'real-macos-hdiutil-apfs-verified\n' > "$HDI_SRC/sub/real.txt"
+  if hdiutil create -size 16m -layout GPTSPUD -fs APFS -volname RealAPFS -srcfolder "$HDI_SRC" -format UDRW -ov "$HDI_DMG" >/dev/null 2>&1; then
+    (cd "$HDI_OUT" && TERM=xterm "$TESTDISK" /log /cmd "$HDI_DMG" advanced,list,recursive,filecopy,quit,quit >/dev/null 2>&1)
+    [ -f "$HDI_OUT/sub/real.txt" ] || { echo "FAILED: real hdiutil APFS /sub/real.txt not extracted"; cat "$HDI_OUT/testdisk.log" || true; exit 1; }
+    grep -q "^real-macos-hdiutil-apfs-verified$" "$HDI_OUT/sub/real.txt" || { echo "FAILED: real hdiutil APFS content mismatch"; exit 1; }
+  fi
+fi
+echo "PASSED"
+
 echo "========================================================================"
-echo " All 7 automated integration test suites passed."
+echo " All 8 automated integration test suites passed."
 echo "========================================================================"
 exit 0

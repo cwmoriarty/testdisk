@@ -65,6 +65,7 @@
 #include "fnctdsk.h"
 #include "dir.h"
 #include "ext2_dir.h"
+#include "apple_dir.h"
 #include "legacyfs_dir.h"
 #include "rfs_dir.h"
 #include "ntfs_dir.h"
@@ -129,7 +130,7 @@ static void display_help(void)
       "- BeFS (BeOS)                           - BSD disklabel (Free/Open/Net BSD)\n" \
       "- CramFS, Compressed File System        - DOS/Windows FAT12, FAT16 and FAT32\n" \
       "- XBox FATX                             - Windows exFAT\n" \
-      "- HFS, HFS+, Hierarchical File System   - JFS, IBM's Journaled File System\n" \
+      "- Apple APFS, HFS, HFS+                 - JFS, IBM's Journaled File System\n" \
       "- Linux btrfs                           - Linux ext2, ext3 and ext4\n" \
       "- Linux GFS2                            - Linux LUKS\n" \
       "- Linux Raid                            - Linux Swap\n" \
@@ -148,8 +149,8 @@ static void display_version(void)
 #ifdef RECORD_COMPILATION_DATE
   printf("Compilation date: %s\n", get_compilation_date());
 #endif
-  printf("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, legacyfs lib: %s, ewf lib: %s, curses lib: %s\n",
-      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_legacyfs_version(), td_ewf_version(), td_curses_version());
+  printf("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, legacyfs lib: %s, apple-explorer lib: %s, ewf lib: %s, curses lib: %s\n",
+      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_legacyfs_version(), td_apple_explorer_version(), td_ewf_version(), td_curses_version());
 #ifdef HAVE_ICONV
   printf("iconv support: yes\n");
 #else
@@ -581,8 +582,8 @@ int main( int argc, char **argv )
 #ifdef RECORD_COMPILATION_DATE
   log_info("Compilation date: %s\n", get_compilation_date());
 #endif
-  log_info("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, legacyfs lib: %s, ewf lib: %s, curses lib: %s\n",
-      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_legacyfs_version(), td_ewf_version(), td_curses_version());
+  log_info("ext2fs lib: %s, ntfs lib: %s, reiserfs lib: %s, legacyfs lib: %s, apple-explorer lib: %s, ewf lib: %s, curses lib: %s\n",
+      td_ext2fs_version(), td_ntfs_version(), td_reiserfs_version(), td_legacyfs_version(), td_apple_explorer_version(), td_ewf_version(), td_curses_version());
 #if defined(HAVE_GETEUID) && !defined(__CYGWIN__) && !defined(__MINGW32__) && !defined(DJGPP)
   if(geteuid()!=0)
   {

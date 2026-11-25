@@ -44,6 +44,7 @@
 #include "chgtype.h"
 #include "chgtypen.h"
 #include "dirpart.h"
+#include "apple_dir.h"
 #include "legacyfs_dir.h"
 #include "fat.h"
 #include "ntfs.h"
@@ -299,7 +300,7 @@ static const char *adv_get_options_for_partition(const partition_t *partition)
   }
   else if(is_part_hfs(partition) || is_part_hfsp(partition))
   {
-    return "tscq";
+    return is_apple_browsable(partition) ? "tlscq" : "tscq";
   }
   else if(is_fat(partition))
     return "tubcq";
@@ -314,9 +315,9 @@ static const char *adv_get_options_for_partition(const partition_t *partition)
   }
   else if(is_hfs(partition) || is_hfsp(partition))
   {
-    return "tscq";
+    return is_apple_browsable(partition) ? "tlscq" : "tscq";
   }
-  else if(is_legacyfs_browsable(partition))
+  else if(is_apple_browsable(partition) || is_legacyfs_browsable(partition))
   {
     return "tlcq";
   }
